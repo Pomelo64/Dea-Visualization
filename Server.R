@@ -1,11 +1,18 @@
 library(shiny)
+library(MASS)
 library(readr)
 library(lpSolve)
 library(Benchmarking)
 library(smacof)
+library(devtools)
+library(ggbiplot)
 library(ggplot2)
-library(ggrepel)
-library(plotly)
+#library(ggrepel)
+#library(plotly)
+library(ggfortify)
+library(kohonen)
+
+
 
 set.seed(7)
 #####
@@ -319,8 +326,6 @@ CEM_unit_agg =  function(input_mat , output_mat , unit , epsilon = 0.00001){
         #requires Benchmarking library
         #requires lpSolve library
         
-        require(Benchmarking)
-        require(lpSolve)
         
         number_of_units = nrow(input_mat)
         input_mat = as.matrix(input_mat)
@@ -370,7 +375,7 @@ CEM_unit_agg =  function(input_mat , output_mat , unit , epsilon = 0.00001){
         t = lp(direction = "min", objective.in = OF , const.mat = A , const.dir = C , const.rhs = rhs_total)
         #CEM_weights_of_unit = t$solution
         #just made the above line inactive, why not returning the solutions directly? 
-        t$solution
+        return(t$solution)
 }
 
 CEM_agg = function(input_mat, output_mat) {
@@ -413,14 +418,246 @@ CEM_agg = function(input_mat, output_mat) {
                 
         }
         
-        CEM
+        return(CEM)
         
 }
 
 
+
+# Co-plot Functions
 #####
+adler_mds <- function(dataset) {       
+        set.seed(7)
+        
+        t = dataset
+        num_of_inputs <- as.numeric(input$num_of_inputs)
+        inputs <- dataset[,1:num_of_inputs]
+        outputs <- dataset[,(num_of_inputs+1):ncol(t)]
+        
+        ratio_df = as.data.frame(matrix(data = rep(NA,nrow(t)*ncol(outputs)*ncol(inputs)), nrow = nrow(t)))
+        
+        ratio_names = vector()
+        index  = 0 
+        for (o in 1:ncol(outputs)){
+                #ratio_temp = outputs[,o] / inputs
+                #ratio_df[,index] = ratio_temp
+                
+                for (i in 1:ncol(inputs)){
+                        index = index + 1
+                        ratio_df[,index] = outputs[,o]/inputs[,i]
+                        ratio_names[index] = paste0("r",o,i)
+                }
+        }
+        
+        colnames(ratio_df) = ratio_names
+        ratio_df = scale(ratio_df)
+        
+        
+        adler_dist = dist(x = ratio_df, method = "manhattan"  )
+        adler_mds = smacofSym(delta = adler_dist, ndim = 2, type = "ordinal")
+        
+        return(adler_mds)
+        
+}
+
+co_plot_DEA_new <- function(dataset,number_of_inputs,threshold= 0.8, margin = 0.5 ) {
+        
+        
+        input = dataset[,1:number_of_inputs]
+        output_starting_var = number_of_inputs+1
+        output = dataset[,output_starting_var:ncol(dataset)]
+        
+        #Adler's method is based on ratios 
+        #reserve a matrix for ratios. 
+        
+        ratio_matrix = matrix(nrow = nrow(input), ncol = ncol(input)*ncol(output))
+        counter = 0 
+        
+        
+        #computing the ratios  
+        for (output_var in 1:ncol(output)) {
+                for (input_var in 1:ncol(input)){
+                        counter = counter + 1
+                        #print(counter)
+                        ratio_matrix[,counter] =output[,output_var]/input[,input_var]
+                        #print(ratio_matrix[,counter])
+                }
+        }
+        data = ratio_matrix
+        
+        
+        
+        var_num = ncol(data)
+        obs_num = nrow(data)
+        
+        #standardized the data
+        std_data = scale(data)
+        
+        #distance matrix 
+        dist_mat = dist(std_data, method = "manhattan")
+        
+        #multidimensional scaling 
+        set.seed(7)
+        mds_model = smacofSym(delta = dist_mat, ndim = 2, type = "ordinal")
+        
+        
+        #MDS points coordinates 
+        mds_coordinates = mds_model$conf
+        #plot(mds_model)
+        #print(mds_model)
+        #ggplot()+geom_point(data = data.frame(mds_coordinates),aes(x = D1 , y = D2)) + geom_text_repel(data = data.frame(mds_coordinates),aes(x = D1 , y = D2), label = c(1:47))
+        #till now we have the coordinates of MDS. Now we can venture on coputing 
+        #the correlations 
+        
+        #in order to work with vectors rather than lines. 
+        #so teta = 10 will not be equal to teta = 190
+        #sign_vec = vector(length = obs_num)
+        
+        
+        # a reserved matrix for projection points 
+        proj_coordinates = matrix(nrow = obs_num , ncol = 2 )
+        
+        # a reserved matrix for teta-correlation-variable 
+        correlation_mat = matrix(nrow = 360 , ncol = var_num)
+        
+        for (var in 1:var_num) {
+                for (teta in 1:360) {
+                        sign_vec = rep(1,obs_num)
+                        teta_gradian = (teta/180)*pi
+                        b = -1 
+                        a = tan(teta_gradian)
+                        
+                        # Shall I multiply all the dist_to_origin to -1 for teta > 180 ??? no! 
+                        # it must be multiplied by -sign vector 
+                        if (teta ==90) {
+                                dist_to_origin = mds_coordinates[,2]
+                                # correlation between the original values of a variable... 
+                                correlation_mat[90,var] = cor(dist_to_origin,data[,var])
+                                
+                        } else if (teta == 270){
+                                
+                                dist_to_origin =  - mds_coordinates[,2]
+                                # correlation between the original values of a variable... 
+                                correlation_mat[270,var] = cor(dist_to_origin,data[,var])
+                                
+                        } else {
+                                proj_coordinates[,1] = b*(b*mds_coordinates[,1]-a*mds_coordinates[,2])/(a**2+b**2) 
+                                proj_coordinates[,2] = a*(a*mds_coordinates[,2]-b*mds_coordinates[,1])/(a**2+b**2)
+                                
+                                if (teta < 90) {
+                                        sign_vec[!(proj_coordinates[,1]>0&proj_coordinates[,2]>0)] = -1
+                                        dist_to_origin = sign_vec * sqrt(proj_coordinates[,1]**2 + proj_coordinates[,2]**2 )
+                                } else if (teta>90 & teta <180) {
+                                        sign_vec[!(proj_coordinates[,1]<0&proj_coordinates[,2]>0)] = -1
+                                        dist_to_origin =  sign_vec * sqrt(proj_coordinates[,1]**2 + proj_coordinates[,2]**2 )
+                                } else if (teta>180 & teta < 270) {
+                                        sign_vec[!(proj_coordinates[,1]<0&proj_coordinates[,2]<0)] = -1
+                                        dist_to_origin =  sign_vec * sqrt(proj_coordinates[,1]**2 + proj_coordinates[,2]**2 )
+                                } else if (teta > 270) {
+                                        sign_vec[!(proj_coordinates[,1]>0&proj_coordinates[,2]<0)] = -1
+                                        dist_to_origin =  sign_vec * sqrt(proj_coordinates[,1]**2 + proj_coordinates[,2]**2 )
+                                }
+                                
+                                
+                                # correlation between the original values of a variable... 
+                                correlation_mat[teta,var] = cor(dist_to_origin,data[,var])
+                                
+                        }
+                }
+        }
+        
+        #reserving a matrix of max correlation of each variable and its corresponding teta 
+        final_mat = matrix(nrow = var_num , ncol= 2)
+        
+        for (var in 1:var_num) {
+                final_mat[var,2]=max(correlation_mat[,var])
+                final_mat[var,1]=which(correlation_mat[,var]==max(correlation_mat[,var]))
+                #plot(correlation_mat[,var])
+        }
+        
+        
+        #reserve a data.frame of variables, maximum correlations and corresponding teta
+        final_dataframe = data.frame(variable = seq(from=1, to=var_num), teta = final_mat[,1], correlation = final_mat[,2])
+        
+        
+        return(final_dataframe)
+        
+        
+}
+
+coplot_vectors_func <- function(data,number_of_inputs){
+        coplot_vectors = co_plot_DEA_new(dataset = data,number_of_inputs =number_of_inputs)
+        
+        teta_gradian = (coplot_vectors$teta/180)*pi
+        slope = tan(teta_gradian)
+        
+        x2 = 1/sqrt(1+slope**2)
+        
+        x2[which(((coplot_vectors$teta>90) & (coplot_vectors$teta<270)))] = -x2[which(((coplot_vectors$teta>90) & (coplot_vectors$teta<270)))]
+        y2 = slope*x2
+        
+        coplot_vectors$x2 = x2
+        coplot_vectors$y2 = y2 
+        coplot_vectors$variable = ratio_names
+}
+
+crs_eff <- function(dataset, num_of_inputs){
+        inputs <- dataset[,1:num_of_inputs]
+        outputs <- dataset[,(num_of_inputs+1):ncol(dataset)]
+        dea(X = inputs, Y = outputs, RTS = "crs" , DUAL = TRUE )
+} 
+
+vrs_eff <- function(dataset, num_of_inputs){
+        inputs <- dataset[,1:num_of_inputs]
+        outputs <- dataset[,(num_of_inputs+1):ncol(dataset)]
+        dea(X = inputs, Y = outputs, RTS = "vrs" , DUAL = TRUE )
+} 
 
 
+# Main Shiny body
+
+# Shiny Main Body 
+#####
+# Multiplot from http://www.cookbook-r.com/Graphs/Multiple_graphs_on_one_page_(ggplot2)/
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+        library(grid)
+        
+        # Make a list from the ... arguments and plotlist
+        plots <- c(list(...), plotlist)
+        
+        numPlots = length(plots)
+        
+        # If layout is NULL, then use 'cols' to determine layout
+        if (is.null(layout)) {
+                # Make the panel
+                # ncol: Number of columns of plots
+                # nrow: Number of rows needed, calculated from # of cols
+                layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                                 ncol = cols, nrow = ceiling(numPlots/cols))
+        }
+        
+        if (numPlots==1) {
+                print(plots[[1]])
+                
+        } else {
+                # Set up the page
+                grid.newpage()
+                pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+                
+                # Make each plot, in the correct location
+                for (i in 1:numPlots) {
+                        # Get the i,j matrix positions of the regions that contain this subplot
+                        matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+                        
+                        print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                                        layout.pos.col = matchidx$col))
+                }
+        }
+}
+
+
+
+#####
 shinyServer(function(input, output) {
         
         ##### 
@@ -512,6 +749,26 @@ shinyServer(function(input, output) {
                 #ifelse(test = dataset_evaluation() == "Great! The dataset meets the requirements.",yes = data.frame(sapply(datafile(),parse_number)) , no = NULL ) 
         })
         
+        efficiencies_crs <- reactive({
+                dataset <- final_dataset_reactive()
+                
+                num_of_inputs <- as.numeric(input$num_of_inputs)
+                inputs <- dataset[,1:num_of_inputs]
+                outputs <- dataset[,(num_of_inputs+1):ncol(dataset)]
+                
+                dea(X = inputs, Y = outputs, RTS = "crs" , DUAL = TRUE)
+        })
+        
+        efficiencies_vrs <- reactive({
+                dataset <- final_dataset_reactive()
+                
+                num_of_inputs <- as.numeric(input$num_of_inputs)
+                inputs <- dataset[,1:num_of_inputs]
+                outputs <- dataset[,(num_of_inputs+1):ncol(dataset)]
+                
+                dea(X = inputs, Y = outputs, RTS = "vrs", DUAL = TRUE )
+        })
+        
         
         # CEM MDU        
         #####
@@ -540,34 +797,56 @@ shinyServer(function(input, output) {
                 unfolding(delta = round((1-t),2),ndim = 2)
         })
         
+        
+        cem_ranges <- reactiveValues(x = NULL, y = NULL)
+        
         cem_unfolding_plot <- reactive({
                 
+                
                 t <- cem_unfolding()
-                g <- ggplot() + geom_point(data = data.frame(t$conf.row), aes(x = D1 , y = D2), color = "blue", size = input$cem_row_point_size, shape = 19, alpha = input$cem_row_transparency) + 
-                        geom_point(data = data.frame(t$conf.col), aes(x = D1 , y = D2), color = "red",size = input$cem_col_point_size, shape = 24, alpha = input$cem_col_transparency) +
+                row_df <- data.frame(t$conf.row, "DMU" = c(1:nrow(t$conf.row))) 
+                col_df <- data.frame(t$conf.col, "DMU" = c(1:nrow(t$conf.col))) 
+                
+                g <- ggplot() + geom_point(data = row_df, aes(x = D1 , y = D2, text = paste("DMU:",DMU)), color = "blue", size = input$cem_row_point_size, shape = 19, alpha = input$cem_row_transparency) + 
+                        geom_point(data = col_df, aes(x = D1 , y = D2, text = paste("DMU:",DMU)), color = "red",size = input$cem_col_point_size, shape = 24, alpha = input$cem_col_transparency) +
                         #geom_text_repel(data = data.frame(t$conf.row), aes(x = D1 , y = D2), color = "blue", alpha = 0.5 , label = label)+
                         #geom_text_repel(data = data.frame(t$conf.col), aes(x = D1 , y = D2), color = "orangered", alpha = 0.5 , label = label) +
                         coord_fixed(ratio = 1,  expand = TRUE)
-                ggplotly(g)
                 
+                g <- g  + 
+                        coord_cartesian(xlim = cem_ranges$x, ylim = cem_ranges$y, expand = FALSE)
+                g
+                #ggplotly(g)
         })
         
-        output$cem_mdu_plot <- renderPlotly({
-                
-                # t <- cem_reactive()
-                #label = 1:nrow(t)
-                #t<- unfolding(delta = round((1-t),2),ndim = 2)
+        
+        output$cem_mdu_plot <- renderPlot({
                 
                 cem_unfolding_plot()
                 #ggplotly(g)
                 
         })
         
+        #for zooming by double click
+        observeEvent(input$cem_dblclick, {
+                brush <- input$cem_brush
+                if (!is.null(brush)) {
+                        cem_ranges$x <- c(brush$xmin, brush$xmax)
+                        cem_ranges$y <- c(brush$ymin, brush$ymax)
+                        
+                } else {
+                        cem_ranges$x <- NULL
+                        cem_ranges$y <- NULL
+                }
+        })
+        
+        
+        
         #Info of CEM unfolding
         output$cem_mdu_info <- renderText({
                 t <- cem_reactive()
                 #t <- ifelse(test = input$cem_approach == "Benevolent" , benevolent_cem_reactive() , aggressive_cem_reactive() ) 
-                t<- unfolding(delta = round((1-t),2),ndim = 2)
+                t<- unfolding(delta = round((1-t),1),ndim = 2)
                 t$stress
         })
         
@@ -582,10 +861,436 @@ shinyServer(function(input, output) {
                 }
         ) 
         
+        
         #End of CEM MDU
         
-        # Adler Co-plot       
+        #####     
+        
+        
+        # Adler Coplot        
+        ##### 
+        
+        mds_ratio_model <- eventReactive(input$coplot_button, {
+                
+                set.seed(7)
+                number_of_inputs <- input$num_of_inputs
+                t <- final_dataset_reactive()
+                
+                outputs = t[,(number_of_inputs+1):ncol(t)]
+                inputs  = t[,1:number_of_inputs]
+                
+                ratio_df = as.data.frame(matrix(data = rep(NA,nrow(t)*ncol(outputs)*ncol(inputs)), nrow = nrow(t)))
+                
+                ratio_names = vector()
+                index  = 0 
+                for (o in 1:ncol(outputs)){
+                        
+                        for (i in 1:ncol(inputs)){
+                                index = index + 1
+                                ratio_df[,index] = outputs[,o]/inputs[,i]
+                                ratio_names[index] = paste0("r",o,i)
+                        }
+                }
+                
+                colnames(ratio_df) = ratio_names
+                ratio_df = scale(ratio_df)
+                
+                
+                adler_dist = dist(x = ratio_df, method = "manhattan"  )
+                adler_mds = smacofSym(delta = adler_dist, ndim = 2, type = "ordinal")
+                
+                adler_mds 
+                
+        }
+        )
+        
+        coplot_vectors_df <- eventReactive(input$coplot_button, {
+                
+                number_of_inputs <- input$num_of_inputs
+                t <- final_dataset_reactive()
+                
+                coplot_vectors = co_plot_DEA_new(dataset = t,number_of_inputs =number_of_inputs)
+                
+                teta_gradian = (coplot_vectors$teta/180)*pi
+                slope = tan(teta_gradian)
+                
+                x2 = 1/sqrt(1+slope**2)
+                
+                x2[which(((coplot_vectors$teta>90) & (coplot_vectors$teta<270)))] = -x2[which(((coplot_vectors$teta>90) & (coplot_vectors$teta<270)))]
+                y2 = slope*x2
+                
+                coplot_vectors$x2 = x2
+                coplot_vectors$y2 = y2 
+                coplot_vectors$variable = ratio_names
+                
+                coplot_vectors
+                
+        })       
+        
+        output$coplot_info <- renderTable({
+                #t <- mds_ratio_model()
+                #t$conf
+                t<- coplot_vectors_df()
+                t
+        })
+        
+        output$coplot_plot <- renderPlotly({
+                adler_mds <- mds_ratio_model()
+                
+                number_of_inputs <- as.numeric(input$num_of_inputs)
+                t <- final_dataset_reactive()
+                coplot_vectors <- coplot_vectors_df()
+                coplot_vectors <- coplot_vectors %>% filter(correlation> input$coplot_vector_treshold)
+                
+                eff <- crs_eff(dataset = t , num_of_inputs = number_of_inputs)
+                
+                adler_coo =data.frame(adler_mds$conf, shape = ifelse(eff$eff==1,1,19), DMU = 1:nrow(t), eff = paste(round(eff$eff*100,2),"%") )
+                
+                
+                
+                g = ggplot() + geom_point(data = adler_coo , aes(x = D1 , y = D2, label = DMU, text = paste("Efficiency:",eff)),  shape = adler_coo$shape, size = input$coplot_point_size, alpha = input$coplot_point_transparency   )
+                g = g + geom_segment(data = coplot_vectors, aes(x = 0 , y = 0 , xend = x2 , yend = y2 , label = variable) , color = "red",  alpha = input$coplot_vector_transparency )
+                #g = g +geom_label(data = coplot_vectors , aes(x = x2 , y = y2, label = variable ), color = "orange", alpha =input$coplot_vector_transparency )
+                
+                
+                ggplotly(g)
+                
+        })
         #####
         
+        # Porembski
+        #####
         
+        porembski_points <- eventReactive(input$Porembski_button, {
+                set.seed(7)
+                
+                t <- final_dataset_reactive()
+                num_of_inputs <- input$num_of_inputs
+                
+                Porembsky_data = scale(t)
+                Porembsky_sammon = sammon(d = dist(Porembsky_data),k=2,niter = 10000 )
+                
+                porembski_crs <- crs_eff(t,num_of_inputs)
+                porembski_vrs <- vrs_eff(t,num_of_inputs)
+                
+                porembski_eff <- switch(input$Porembski_dea_model, 
+                                        "CRS" = porembski_crs,
+                                        "VRS" = porembski_vrs)
+                
+                Porembsky_df=data.frame(DMU=1:nrow(t),Porembsky_sammon$points,Efficiency = porembski_eff$eff)
+                Porembsky_df$Shape = as.integer(ifelse(Porembsky_df$Efficiency==1,1,19))
+                Porembsky_df
+                
+        })
+        
+        porembski_edges <- eventReactive(input$Porembski_button, {
+                
+                set.seed(7)
+                
+                t <- final_dataset_reactive()
+                num_of_inputs <- input$num_of_inputs
+                
+                Porembski_data = scale(t)
+                Porembski_sammon = sammon(d = dist(Porembski_data),k=2,niter = 10000 )
+                
+                porembski_crs <- crs_eff(t,num_of_inputs)
+                porembski_vrs <- vrs_eff(t,num_of_inputs)
+                Porembski_eff <- switch(input$Porembski_dea_model, 
+                                        "CRS" = porembski_crs,
+                                        "VRS" = porembski_vrs)
+                
+                Porembski_links_df = data.frame("start.DMU"= NA,"end.DMU"=NA,"x1"=NA,"y1"=NA,"x2"=NA,"y2"=NA,"alpha"=NA)
+                
+                index = 0 
+                for (r in 1:nrow(t)) {
+                        
+                        for (c in 1:nrow(t)){
+                                index = index + 1 
+                                Porembski_links_df[index,] = c(r,c,Porembski_sammon$points[r,1],Porembski_sammon$points[r,2],Porembski_sammon$points[c,1],Porembski_sammon$points[c,2],Porembski_eff$lambda[r,c])
+                        } 
+                }
+                
+                Porembski_links_df
+                
+        })
+        
+        Porembski_ranges <- reactiveValues(x = NULL, y = NULL)
+        
+        Porembski_plot_reactive <- reactive({
+                edges_df <- porembski_edges()
+                points_df <- porembski_points()
+                
+                #g = ggplot() + geom_point(data = points_df , aes(x = X1 , y = X2))
+                g = ggplot() + geom_point(data = points_df , aes(x = X1 , y = X2),shape =points_df$Shape , size = input$Porembski_point_size, alpha = input$Porembski_point_transparency) 
+                #g = g + geom_text_repel(data =Porembsky_df , aes(x = X1 , y = X2), label = label , color = label_color , alpha = 1 )
+                
+                
+                for (index in 1:nrow(edges_df)) {
+                        if (edges_df[index,"alpha"] > input$Porembski_edge_treshold) {
+                                g = g  + geom_segment(data = edges_df[index,], aes(x = x1 , y = y1 , xend = x2 , yend = y2),alpha = round(edges_df[index,"alpha"],2)/input$Porembski_edge_transparency , color = "red" )
+                        }
+                }
+                g = g + coord_fixed(ratio = 1,  expand = TRUE)
+                g <- g  + 
+                        coord_cartesian(xlim = Porembski_ranges$x, ylim = Porembski_ranges$y, expand = FALSE)
+                g
+                
+        })
+        
+        output$Porembski_plot <- renderPlot({
+                Porembski_plot_reactive()
+        })
+        
+        observeEvent(input$Porembski_dblclick, {
+                brush <- input$Porembski_brush
+                if (!is.null(brush)) {
+                        Porembski_ranges$x <- c(brush$xmin, brush$xmax)
+                        Porembski_ranges$y <- c(brush$ymin, brush$ymax)
+                        
+                } else {
+                        Porembski_ranges$x <- NULL
+                        Porembski_ranges$y <- NULL
+                }
+        })
+        
+        output$download_Porembski_graph <- downloadHandler(
+                filename = "Porembski_graph.png",
+                content = function(file) {
+                        #png(file)
+                        #print(cem_unfolding_plot())
+                        #dev.off()
+                        ggsave(file, plot = Porembski_plot_reactive(), device = "png", dpi = 450)
+                }
+        ) 
+        
+        output$Porembski_info <- renderTable({
+                head(porembski_points())
+        })
+        
+        
+        
+        #####
+        
+        # PCA Biplot
+        #####
+        biplot_data <- eventReactive(input$biplot_button,{
+                t<- final_dataset_reactive()
+                t <- scale(t)
+                prcomp(t)
+        })
+        
+        biplot_supplement_data <- eventReactive(input$biplot_button,{
+                t<- final_dataset_reactive()
+                number_of_inputs <- input$num_of_inputs
+                
+                coordinates <- prcomp(t)$x[,1:2]
+                crs_efficiency <- crs_eff(t,number_of_inputs)$eff
+                vrs_efficiency <- vrs_eff(t,number_of_inputs)$eff
+                
+                data.frame(coordinates,crs_efficiency, vrs_efficiency)
+        })
+        
+        ranges <- reactiveValues(x = NULL, y = NULL)
+        
+        #output$plot1 <- renderPlot({
+        #        ggplot(mtcars, aes(wt, mpg)) +
+        #                geom_point() +
+        #                coord_cartesian(xlim = ranges$x, ylim = ranges$y, expand = FALSE)
+        #})
+        
+        
+        biplot_plot <- reactive({
+                x <- biplot_data()
+                supp <- biplot_supplement_data()
+                data <- final_dataset_reactive()
+                data$shape <- switch(EXPR = input$biplot_dea_model, 
+                                     "CRS" = ifelse(test = supp$crs_efficiency ==1 , 1, 19),
+                                     "VRS" = ifelse(test = supp$vrs_efficiency ==1 , 1, 19) )
+                
+                #g <-autoplot(t, data = data, 
+                #             loadings = TRUE, loadings.colour = 'red',
+                #             loadings.label = TRUE, loadings.label.size = 3, 
+                #             size = input$biplot_point_size ,
+                #             alpha = input$biplot_point_transparency ,
+                #             shape = data$shape ,
+                #              loadings.size = input$biplot_vector_size )
+                
+                z1 <- data.frame(DMU = 1:nrow(data), x$x[, 1:2])
+                z2 <- data.frame(Variables = (rownames(x$rotation)), x$rotation[, 1:2])
+                
+                g<- ggplot(z1, aes(x = PC1,y = PC2)) + 
+                        geom_point( size=input$biplot_point_size, alpha = input$biplot_point_transparency) +
+                        geom_segment(data=z2, aes(PC1*input$biplot_vector_size, PC2*input$biplot_vector_size, xend=0, yend=0), col="red",alpha = input$biplot_vector_transparency ) +
+                        geom_text(data=z2 , aes(x = PC1*input$biplot_vector_size,y =  PC2*input$biplot_vector_size, label = Variables ), col="red", alpha = input$biplot_vector_transparency, size = input$biplot_vector_text_size ) 
+                
+                g <- g  + 
+                        coord_cartesian(xlim = ranges$x, ylim = ranges$y, expand = FALSE)
+                
+                g
+                
+        })
+        
+        output$biplot_plot <- renderPlot({
+                biplot_plot()
+        })
+        
+        # When a double-click happens, check if there's a brush on the plot.
+        # If so, zoom to the brush bounds; if not, reset the zoom.
+        observeEvent(input$biplot_dblclick, {
+                brush <- input$biplot_brush
+                if (!is.null(brush)) {
+                        ranges$x <- c(brush$xmin, brush$xmax)
+                        ranges$y <- c(brush$ymin, brush$ymax)
+                        
+                } else {
+                        ranges$x <- NULL
+                        ranges$y <- NULL
+                }
+        })
+        
+        output$download_biplot <- downloadHandler(
+                filename = "biplot.png",
+                content = function(file) {
+                        #png(file)
+                        #print(biplot_plot())
+                        #dev.off()
+                        ggsave(file, plot = biplot_plot(), device = "png", dpi = 450)
+                }
+        ) 
+        
+        output$biplot_info <- renderTable({
+                head(biplot_supplement_data())
+                #biplot_data()
+                #
+        })
+        
+        #####
+        
+        # SOM DEA
+        #####
+        
+        som_data <- eventReactive(input$som_button,{
+                t <- final_dataset_reactive()
+                scale(t)
+        })
+        
+        som_plot_func <- reactive({
+                set.seed(7)
+                t<- som_data()
+                d<- final_dataset_reactive()
+                
+                number_of_inputs = input$num_of_inputs
+                
+                crs_efficiency <- crs_eff(d,number_of_inputs)$eff
+                vrs_efficiency <- vrs_eff(d,number_of_inputs)$eff
+                
+                
+                horizontal_nodes = input$som_h_size
+                vertical_nodes = input$som_v_size 
+                total_nodes = horizontal_nodes*vertical_nodes
+                
+                som_factor = som(X = t, 
+                                 grid = somgrid(xdim =horizontal_nodes, ydim = vertical_nodes, topo = "hexagonal" ),
+                                 rlen = 10000 ,
+                                 init = t[sample(x = nrow(t), size = total_nodes, replace = TRUE),], 
+                                 keep.data = TRUE)
+                
+                coolBlueHotRed <- function(n, alpha = 1) {rainbow(n, end=4/6, alpha=alpha)[n:1]}
+                jitter = matrix(rnorm(n= nrow(t)*2, mean = 0,sd = 0.1),ncol = 2)
+                
+                som_eff_vec = vector(length = total_nodes)
+                
+                #for (node in 1:total_nodes) {
+                #       som_eff_vec[node] = mean(japan_crs$eff[which(japan_som_factor$unit.classif==node)] )
+                #}
+                
+                som_eff_vec_sapply= switch(EXPR = input$som_dea_model, 
+                                           "CRS" = sapply(X = 1:total_nodes, function(x) mean(crs_efficiency[which(som_factor$unit.classif==x)] )  ),
+                                           "VRS" = sapply(X = 1:total_nodes, function(x) mean(vrs_efficiency[which(som_factor$unit.classif==x)] )  )
+                )
+                
+                g<- plot(som_factor, type = "property", property = som_eff_vec_sapply, palette.name = coolBlueHotRed , main = "SOM DEA" )
+                
+                g<- switch(EXPR = input$som_labels ,
+                           "Yes" = g+ text(x = som_factor$grid$pts[som_factor$unit.classif,1] + jitter[,1], y = som_factor$grid$pts[som_factor$unit.classif,2] + jitter[,2],labels = 1:nrow(t) , col = alpha("white",1)    ),
+                           "No" = g 
+                )
+                #g <- g+ text(x = som_factor$grid$pts[som_factor$unit.classif,1] + jitter[,1], y = som_factor$grid$pts[som_factor$unit.classif,2] + jitter[,2],labels = 1:nrow(t) , col = alpha("white",1)    )
+                g
+                
+                
+        })
+        
+        
+        output$som_plot <- renderPlot({
+                som_plot_func()
+        })
+        
+        
+        som_properties_plot <- reactive({
+                set.seed(7)
+                t<- som_data()
+                d<- final_dataset_reactive()
+                
+                number_of_inputs = input$num_of_inputs
+                horizontal_nodes = input$som_h_size
+                vertical_nodes = input$som_v_size 
+                total_nodes = horizontal_nodes*vertical_nodes
+                
+                som_factor = som(X = t, 
+                                 grid = somgrid(xdim =horizontal_nodes, ydim = vertical_nodes, topo = "hexagonal" ),
+                                 rlen = 10000 ,
+                                 init = t[sample(x = nrow(t), size = total_nodes, replace = TRUE),], 
+                                 keep.data = TRUE)
+                
+                coolBlueHotRed <- function(n, alpha = 1) {rainbow(n, end=4/6, alpha=alpha)[n:1]}
+                jitter = matrix(rnorm(n= nrow(t)*2, mean = 0,sd = 0.1),ncol = 2)
+                
+                plot_titles <- colnames(d)
+                #plots = list()
+                
+                #for (index in 1:ncol(d)) {
+                #        p1 = plot(som_factor, type = "property", property = som_factor$codes[[1]][,index], palette.name = coolBlueHotRed  )
+                #        plots[[index]] <- p1  
+                #}
+                
+                #multiplot(plotlist = plots, cols = 3)
+                
+                num_of_plots<-ncol(t)
+                plot_rows =as.integer(num_of_plots/3) + 1 
+                
+                par(mfrow=c(plot_rows,3))
+                for (index in 1:ncol(d)) {
+                        plot(som_factor, type = "property", property = som_factor$codes[[1]][,index], palette.name = coolBlueHotRed, main = plot_titles[index]  )
+                        #plots[[index]] <- p1  
+                }
+        })
+        
+        output$som_var_plots <- renderPlot({
+                
+                som_properties_plot()
+                
+        })
+        
+        output$download_som_main <- downloadHandler(
+                filename = "SOM_Main.png",
+                content = function(file) {
+                        #png(file)
+                        #print(biplot_plot())
+                        #dev.off()
+                        ggsave(file, plot = som_plot_func(), device = "png", dpi = 450)
+                }
+        ) 
+        
+        output$download_som_properties <- downloadHandler(
+                filename = "SOM_properties.png",
+                content = function(file) {
+                        #png(file)
+                        #print(biplot_plot())
+                        #dev.off()
+                        ggsave(file, plot = som_properties_plot(), device = "png", dpi = 450)
+                }
+        ) 
+        ######
+        # Costa Frontier 
 })
