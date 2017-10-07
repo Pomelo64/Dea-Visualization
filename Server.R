@@ -1324,7 +1324,7 @@ shinyServer(function(input, output) {
                         wsum_outputs = round(apply(X = modified_vo_inorient * data[,(number_of_inputs+1):ncol(data)], MARGIN = 1 , FUN = sum),3)
                         
                         #final df
-                        Costa_df = data.frame(DMU = c(1:nrow(data)), I =wsum_inputs, O = wsum_outputs, efficiency = ifelse(eff_crs_in$eff==1,"Efficient","Inefficient") )
+                        Costa_df = data.frame(DMU = c(1:nrow(data)), I =wsum_inputs, O = wsum_outputs, efficiency_binary = ifelse(eff_crs_in$eff==1,"Efficient","Inefficient") ,efficiency =  eff_crs_in$eff)
                         
                         
                 }
@@ -1340,7 +1340,7 @@ shinyServer(function(input, output) {
                         wsum_inputs = round(apply(X = modified_vi_outorient * data[,1:number_of_inputs], MARGIN = 1 , FUN = sum),3)
                         wsum_outputs = round(apply(X = modified_vo_outorient * data[,(number_of_inputs+1):ncol(data)], MARGIN = 1 , FUN = sum),3)
                         
-                        Costa_df = data.frame(DMU = c(1:nrow(data)), I =wsum_inputs, O = wsum_outputs, efficiency = ifelse(eff_crs_out$eff==1,"Efficient","Inefficient") )
+                        Costa_df = data.frame(DMU = c(1:nrow(data)), I =wsum_inputs, O = wsum_outputs, efficiency_binary = ifelse(eff_crs_out$eff==1,"Efficient","Inefficient"), efficiency =  eff_crs_out$eff)
                         
                 }
                 
@@ -1363,13 +1363,14 @@ shinyServer(function(input, output) {
                 y_range <- y_max - y_min
                 
                 g = ggplot() +
-                        geom_point(data = t, aes(x = I , y = O, color = factor(t$efficiency)), 
+                        geom_point(data = t, aes(x = I , y = O, shape = factor(efficiency_binary), colour = efficiency ), 
                                    size = input$Costa_point_size , 
                                    alpha = input$Costa_point_transparency) + 
-                        scale_colour_manual(name='DMU', values = c("Efficient"="gold","Inefficient"="blue"))
+                        scale_colour_gradient(low = "red", high = "green") +
+                        scale_shape_manual(values = c(17,16))
                 
                 g = g + geom_abline(xintercept = 0 , yintercept = 0 , slope = 1, color = "red")
-                g = g + coord_fixed(ratio = 1,  expand = TRUE)
+                g = g + coord_fixed(ratio = 1,  expand = TRUE) 
                 
                 g<- g + coord_cartesian(xlim = Costa_ranges$x, ylim = Costa_ranges$y, expand = FALSE)
                 
