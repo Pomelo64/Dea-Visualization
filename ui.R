@@ -383,13 +383,14 @@ shinyUI(
                                                                      "widgets could help to have a better final map."), 
                                                             tags$hr(),
                                                             
+                                                            radioButtons("Costa_dea_model",label = "DEA Model for Coloring", 
+                                                                         choices = list("CRS-Input Oriented","CRS-Output Oriented", "VRS-Input Oriented","VRS-Output Oriented"),
+                                                                         selected = "CRS-Input Oriented"),
                                                             actionButton("Costa_button","Plot"), 
                                                             
                                                             tags$hr(),
                                                             
-                                                            radioButtons("Costa_dea_model",label = "DEA Model for Coloring", 
-                                                                         choices = list("CRS-Input Oriented","CRS-Output Oriented", "VRS-Input Oriented","VRS-Output Oriented"),
-                                                                         selected = "CRS-Input Oriented"),
+                                                            
                                                             
                                                             sliderInput("Costa_point_size", label = "Point Size", min = 1 , max = 4 , value = 1),
                                                             sliderInput("Costa_point_transparency", label = "Point Transparency", min = 0.1 , max = 1 , value = 0.5),
@@ -419,10 +420,73 @@ shinyUI(
                                                             
                                                     )
                                             )
-                                    ) 
-                           )
-                           #Endo of Costa Frintier                                
-                ),
+                                    )
+                           ),# End of Costa Frontier 
+                           tabPanel("MDS Color Plots",
+                                    fluidPage(
+                                            # Application title
+                                            titlePanel("MDS Color Plots"),
+                                            
+                                            sidebarLayout(
+                                                    
+                                                    sidebarPanel(
+                                                            
+                                                            helpText("Note: By pressing the 'plot' button, the chosen data type",
+                                                                     "would be visualized on the right panel using Multidimensional Scaling ",
+                                                                     "method. Further , the below",
+                                                                     "widgets could help to have a better final map."), 
+                                                            tags$hr(),
+                                                            radioButtons("mds_dataset",label = "Dataset of MDS", 
+                                                                         choices = list("Original Variables","Ratio Variables"),
+                                                                         selected = "Original Variables"),
+                                                            radioButtons("mds_model",label = "MDS Type", 
+                                                                         choices = list("Ratio","Interval","Ordinal"),
+                                                                         selected = "Ratio"),
+                                                            radioButtons("mds_distance",label = "Distance Function", 
+                                                                         choices = list("Euclidean","Manhattan"),
+                                                                         selected = "Euclidean"),
+                                                            uiOutput("mds_var_selection_ui"),
+                                                            actionButton("mds_button","Plot"), 
+                                                            
+                                                            tags$hr(),
+                                                            
+                                                            
+                                                            
+                                                            sliderInput("mds_point_size", label = "Point Size", min = 1 , max = 4 , value = 1),
+                                                            sliderInput("mds_point_transparency", label = "Point Transparency", min = 0.1 , max = 1 , value = 0.5),
+                                                            #sliderInput("biplot_vector_transparency", label = "Vector Transparency", min = 0.1 , max = 1 , value = 0.5),
+                                                            #sliderInput("biplot_vector_size", label = "Vector Size", min = 1 , max = 5 , value = 1),
+                                                            #sliderInput("biplot_vector_treshold", label = "Vector Treshold", min = 0 , max = 0.95 , value = 0),
+                                                            #sliderInput("biplot_vector_text_size", label = "Vector Text Size", min = 1 , max = 10 , value =2 ),
+                                                            checkboxInput('mds_labels', 'Labels', TRUE)
+                                                            
+                                                    ),
+                                                    
+                                                    
+                                                    # Show the caption, a summary of the dataset and an HTML 
+                                                    # table with the requested number of observations
+                                                    mainPanel(
+                                                            
+                                                            #plotOutput("biplot_plot"),
+                                                            plotOutput("mds_plot",
+                                                                       dblclick = "mds_dblclick",
+                                                                       brush = brushOpts(
+                                                                               id = "mds_brush",
+                                                                               resetOnNew = TRUE
+                                                                       )
+                                                            ),
+                                                            downloadButton('download_mds', 'Download the Plot'),
+                                                            tableOutput("mds_info")
+                                                            
+                                                    )
+                                            )
+                                    )
+                           )# MDS Multiplots
+                           
+                ), # End of Plotting Methods -  Overall
+                
+                
+                
                 
                 tabPanel('About')
         )

@@ -601,22 +601,21 @@ coplot_vectors_func <- function(data,number_of_inputs){
         coplot_vectors$variable = ratio_names
 }
 
-crs_eff <- function(dataset, num_of_inputs){
+crs_eff <- function(dataset, num_of_inputs, orientation = "in" ){
         inputs <- dataset[,1:num_of_inputs]
         outputs <- dataset[,(num_of_inputs+1):ncol(dataset)]
-        dea(X = inputs, Y = outputs, RTS = "crs" , DUAL = TRUE )
+        dea(X = inputs, Y = outputs, RTS = "crs" , DUAL = TRUE, ORIENTATION = orientation )
 } 
 
-vrs_eff <- function(dataset, num_of_inputs){
+vrs_eff <- function(dataset, num_of_inputs, orientation = "in"){
         inputs <- dataset[,1:num_of_inputs]
         outputs <- dataset[,(num_of_inputs+1):ncol(dataset)]
-        dea(X = inputs, Y = outputs, RTS = "vrs" , DUAL = TRUE )
+        dea(X = inputs, Y = outputs, RTS = "vrs" , DUAL = TRUE , ORIENTATION = orientation)
 } 
 
 
-# Main Shiny body
 
-# Shiny Main Body 
+
 #####
 # Multiplot from http://www.cookbook-r.com/Graphs/Multiple_graphs_on_one_page_(ggplot2)/
 multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
@@ -656,7 +655,7 @@ multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
 }
 
 
-
+# Shiny Main Body
 #####
 shinyServer(function(input, output) {
         
@@ -1293,4 +1292,297 @@ shinyServer(function(input, output) {
         ) 
         ######
         # Costa Frontier 
-})
+        #####
+        
+        Costa_df <- eventReactive(input$Costa_button,{
+                data <- final_dataset_reactive()
+                number_of_inputs <- input$num_of_inputs
+                
+                # "CRS-Input Oriented","CRS-Output Oriented", "VRS-Input Oriented","VRS-Output Oriented"
+                #eff <- switch(EXPR = input$Costa_dea_model,
+                #               "CRS-Input Oriented" = crs_eff(dataset = data, num_of_inputs = number_of_inputs , orientation = "in"), 
+                #               "CRS-Output Oriented"= crs_eff(dataset = data, num_of_inputs = number_of_inputs , orientation = "out") 
+                #"VRS-Input Oriented" = vrs_eff(dataset = data, num_of_inputs = number_of_inputs , orientation = "in") 
+                #"VRS-Output Oriented" = vrs_eff(dataset = data, num_of_inputs = number_of_inputs , orientation = "out")
+                #)
+                
+                model <- switch(EXPR = input$Costa_dea_model,
+                                "CRS-Input Oriented" = "CRS-In",
+                                "CRS-Output Oriented" = "CRS-Out"
+                                
+                )
+                
+                if (model == "CRS-In") {
+                        
+                        # efficiency canlculations
+                        eff_crs_in <- crs_eff(dataset = data, num_of_inputs = number_of_inputs , orientation = "in")
+                        
+                        #Normalization Factor
+                        S_crs_inorient <- apply(X = eff_crs_in$ux,MARGIN = 1 , FUN = sum)
+                        
+                        # modified virtual factors
+                        modified_vi_inorient <- eff_crs_in$ux/ S_crs_inorient
+                        modified_vo_inorient <-  eff_crs_in$vy/ S_crs_inorient
+                        
+                        # virtual weight sums
+                        wsum_inputs = round(apply(X = modified_vi_inorient * data[,1:number_of_inputs], MARGIN = 1 , FUN = sum),3)
+                        wsum_outputs = round(apply(X = modified_vo_inorient * data[,(number_of_inputs+1):ncol(data)], MARGIN = 1 , FUN = sum),3)
+                        
+                        #final df
+                        Costa_df = data.frame(DMU = c(1:nrow(data)), I =wsum_inputs, O = wsum_outputs, shape = ifelse(eff_crs_in$eff==1,1,19) )
+                        
+                        
+                }
+                else if (model == "CRS-Out") {
+                        
+                        eff_crs_out <- crs_eff(dataset = data, num_of_inputs = number_of_inputs , orientation = "out") 
+                        
+                        S_crs_outorient <- apply(X = eff_crs_out$vy,MARGIN = 1 , FUN = sum)
+                        
+                        modified_vi_outorient <- eff_crs_out$ux / S_crs_outorient
+                        modified_vo_outorient <- eff_crs_out$vy / S_crs_outorient
+                        
+                        wsum_inputs = round(apply(X = modified_vi_outorient * data[,1:number_of_inputs], MARGIN = 1 , FUN = sum),3)
+                        wsum_outputs = round(apply(X = modified_vo_outorient * data[,(number_of_inputs+1):ncol(data)], MARGIN = 1 , FUN = sum),3)
+                        
+                        Costa_df = data.frame(DMU = c(1:nrow(data)), I =wsum_inputs, O = wsum_outputs, shape = ifelse(eff_crs_out$eff==1,1,19) )
+                        
+                }
+                
+                #label = rep(NA,47)
+                #label[which(Costa_df$I==Costa_df$O)] = which(Costa_df$I==Costa_df$O)
+                
+        })
+        
+        Costa_ranges <- reactiveValues(x = NULL, y = NULL)
+        
+        Costa_plot_func <- reactive({
+                
+                t <- Costa_df()
+                
+                g = ggplot() + geom_point(data = t, aes(x = I , y = O), size = input$Costa_point_size , alpha = input$Costa_point_transparency, shape = t$shape)
+                g = g + geom_abline(xintercept = 0 , yintercept = 0 , slope = 1, color = "red")
+                g = g + coord_fixed(ratio = 1,  expand = TRUE)
+                #g = g + geom_label_repel(data = Costa_df, aes(x = I , y = O), label = label, color = label_color, alpha = 0.8)
+                
+                g<- g + coord_cartesian(xlim = Costa_ranges$x, ylim = Costa_ranges$y, expand = FALSE)
+                
+                g
+        })
+        
+        output$Costa_plot <- renderPlot({
+                
+                Costa_plot_func()
+        })
+        
+        observeEvent(input$Costa_dblclick, {
+                brush <- input$Costa_brush
+                if (!is.null(brush)) {
+                        Costa_ranges$x <- c(brush$xmin, brush$xmax)
+                        Costa_ranges$y <- c(brush$ymin, brush$ymax)
+                        
+                } else {
+                        Costa_ranges$x <- NULL
+                        Costa_ranges$y <- NULL
+                }
+        })
+        
+        output$download_Costa <- downloadHandler(
+                filename = "Costa.png",
+                content = function(file) {
+                        #png(file)
+                        #print(biplot_plot())
+                        #dev.off()
+                        ggsave(file, plot = Costa_plot_func(), device = "png", dpi = 450)
+                }
+        ) 
+        
+        output$Costa_info <- renderTable({
+                head(Costa_df())
+                #biplot_data()
+                #
+        })
+        
+        #####
+        # MDS Plots 
+        
+        #ratio names function
+        ratio_names <- function(){
+                dataset<-  final_dataset_reactive()
+                number_of_inputs <- input$num_of_inputs
+                number_of_outputs <- ncol(dataset)-number_of_inputs
+                #print("number of inputs inside ratio names")
+                #print(number_of_inputs)
+                #print("number of outputs inside ratio names")
+                #print(number_of_outputs)
+                
+                index = 0 
+                ratio_vector = vector(length = number_of_inputs*number_of_outputs )
+                #print("ratio vector")
+                #print(ratio_vector)
+                for (o in 1:number_of_outputs ){
+                        for (i in 1:number_of_inputs){
+                                index <- index + 1
+                                #ratio_vector[index]<- paste0("O",o,"/","I",i)
+                                ratio_vector[index] <- paste0(colnames(dataset)[number_of_inputs+o],"/",colnames(dataset)[i])
+                        }
+                }
+                #print("ratio_vector")
+                #print(ratio_vector)
+                return(ratio_vector)
+        }
+        
+        #ratio dataset
+        
+        # based on the uploaded file, it sets the select box of variables
+        output$mds_var_selection_ui <- renderUI({
+                dataset<-  final_dataset_reactive()
+                number_of_inputs <- input$num_of_inputs
+                
+                switch(EXPR = input$mds_dataset,
+                       "Original Variables" = 
+                               selectInput(inputId = "mds_var_selection",
+                                           label = "Variable to Visualize",
+                                           choices = c(colnames(dataset),"fdh.efficiency","vrs.efficiency","crs.efficiency","drs.efficiency","irs.efficiency","frh.efficiency")
+                               ),
+                       "Ratio Variables" = 
+                               selectInput(inputId = "mds_var_selection",
+                                           label = "Variable to Visualize",
+                                           choices = c(ratio_names(),"fdh.efficiency","vrs.efficiency","crs.efficiency","drs.efficiency","irs.efficiency","frh.efficiency")
+                               )
+                )
+                
+        }) # end of mds renderUI
+        
+        mds_data_ratio <- function(){
+                dataset <- final_dataset_reactive()
+                number_of_inputs <- input$num_of_inputs
+                number_of_outputs <- ncol(dataset)-number_of_inputs
+                
+                index = 0 
+                ratio_vector <- vector(length = number_of_inputs*number_of_outputs )
+                
+                number_of_ratios <- number_of_inputs*number_of_outputs*nrow(dataset)
+                ratio_mat <- matrix(data = rep(NA,number_of_ratios),nrow = nrow(dataset))
+                print("dim of ratio_mat")
+                print(dim(ratio_mat))
+                
+                for (o in 1:number_of_outputs ){
+                        for (i in 1:number_of_inputs){
+                                index <- index + 1
+                                #ratio_vector[index]<- paste0("O",o,"/","I",i)
+                                ratio_vector[index] <- paste0(colnames(dataset)[number_of_inputs+o],"/",colnames(dataset)[i])
+                                ratio_mat[,index] <- dataset[,(number_of_inputs+o)]/dataset[,i]
+                        }
+                }
+                
+                ratio_df <- as.data.frame(ratio_mat)
+                colnames(ratio_df) = ratio_vector
+                
+                print("head of ratio_df")
+                print(head(ratio_df))
+                return(ratio_df)
+        }
+        
+        # mds data: original dataset or ratios? 
+        mds_data <- reactive({
+                switch(EXPR  = input$mds_dataset, 
+                       "Original Variables" = final_dataset_reactive(),
+                       
+                       "Ratio Variables"=  mds_data_ratio()
+                       
+                ) 
+                
+        }) 
+        
+        
+        # mds model generation
+        mds_model <- eventReactive(input$mds_button,{
+                
+                mds_data <- mds_data()
+                
+                mds_dist <- dist(x = mds_data, method = tolower(input$mds_distance))
+                
+                mds_type <- switch(EXPR = input$mds_model , 
+                                   "Ratio" = "ratio",
+                                   "Interval" = "interval",
+                                   "Ordinal" = "ordinal")
+                
+                smacofSym(delta = mds_dist, ndim = 2 , type = mds_type  )
+                
+        })
+        
+        
+        final_dataset_to_visualize <- eventReactive(input$mds_button,{
+                org_dataset <- final_dataset_reactive()
+                number_of_inputs <- input$num_of_inputs
+                core_data <- mds_data()
+                
+                coordinates <- mds_model()$conf
+                
+                fdh.efficiency <- dea(X = org_dataset[,1:number_of_inputs], Y = org_dataset[,(number_of_inputs+1):ncol(org_dataset)], RTS = "fdh")$eff
+                vrs.efficiency <- dea(X = org_dataset[,1:number_of_inputs], Y = org_dataset[,(number_of_inputs+1):ncol(org_dataset)], RTS = "vrs")$eff
+                drs.efficiency <- dea(X = org_dataset[,1:number_of_inputs], Y = org_dataset[,(number_of_inputs+1):ncol(org_dataset)], RTS = "drs")$eff
+                crs.efficiency <- dea(X = org_dataset[,1:number_of_inputs], Y = org_dataset[,(number_of_inputs+1):ncol(org_dataset)], RTS = "crs")$eff
+                irs.efficiency <- dea(X = org_dataset[,1:number_of_inputs], Y = org_dataset[,(number_of_inputs+1):ncol(org_dataset)], RTS = "irs")$eff
+                frh.efficiency <- dea(X = org_dataset[,1:number_of_inputs], Y = org_dataset[,(number_of_inputs+1):ncol(org_dataset)], RTS = "add")$eff
+                
+                
+                final_dataset <- data.frame(core_data,coordinates, fdh.efficiency,vrs.efficiency,drs.efficiency,crs.efficiency,irs.efficiency,frh.efficiency)
+                all_colnames <- c(colnames(core_data),"D1","D2","fdh.efficiency","vrs.efficiency","drs.efficiency","crs.efficiency","irs.efficiency","frh.efficiency")
+                index <- which(all_colnames==input$mds_var_selection)
+                
+                print("selected variable to visualize")
+                print(input$mds_var_selection)
+                print("----")
+                print("core dataset colnames")
+                print(colnames(core_data))
+                print("----")
+                print("final dataset colnames")
+                print(colnames(final_dataset))
+                print("----")
+                print("is selected variable in the core dataset?")
+                print(input$mds_var_selection %in%(colnames(core_data)) )
+                
+                print("----")
+                print("which column is in the final dataset")
+                print(index)
+                print("----")
+                print("is there anything in final_dataset[,index]")
+                print(head(final_dataset[,index]))
+                
+                list(index,final_dataset)
+                
+        })
+        # visualize mds model 
+        mds_plot_func <- reactive({
+                
+                final_dataset <- final_dataset_to_visualize()[[2]]
+                index <- final_dataset_to_visualize()[[1]]
+                
+                g<- ggplot(data = final_dataset) + 
+                        geom_point(aes(D1,D2, color = final_dataset[,index]),
+                                   
+                                   size = input$mds_point_size,
+                                   alpha = input$mds_point_transparency
+                        ) +
+                        scale_colour_gradient(low = "blue", high = "red")
+                g      
+                
+        })
+        
+        
+        output$mds_plot <- renderPlot({
+                mds_plot_func()
+        })
+        
+        
+        output$mds_info <- renderTable({
+                #class(colnames(final_dataset_reactive()))
+                head(mds_data())
+        })     
+        
+        
+        
+        
+}) # End of Shiny app 
