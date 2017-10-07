@@ -110,12 +110,6 @@ shinyUI(
                                                             uiOutput("dotplot_dmu_selection_ui"),
                                                             actionButton("dotplot_button","Plot") 
                                                             
-                                                            #tags$hr(),
-                                                            #helpText("Note: You can highlight the position of a single DMU on the plots"),
-                                                            #uiOutput("dotplot_dmu_selection_ui")
-                                                            
-                                                            
-                                                            
                                                             
                                                     ),
                                                     
@@ -257,7 +251,7 @@ shinyUI(
                            ),
                            #####
                            # Coplot
-                           # Removed Due to Code bugs. Replaced by MDS plots
+                           # Removed Due to Code bugs. Also the method is a nonesense and not defendable. Replaced by MDS plots
                            #####
                            # Porembski 
                            #####
@@ -315,6 +309,7 @@ shinyUI(
                                             )
                                     ) 
                            ),
+                           ##### 
                            tabPanel("PCA Biplot",
                                     fluidPage(
                                             
@@ -370,6 +365,7 @@ shinyUI(
                                             )
                                     ) 
                            ), 
+                           #####
                            tabPanel("Self-Organizing Map",
                                     fluidPage(
                                             
@@ -426,6 +422,7 @@ shinyUI(
                                             )
                                     ) 
                            ),
+                           #####
                            tabPanel("Costa Frontier",
                                     fluidPage(
                                             
@@ -482,6 +479,7 @@ shinyUI(
                                             )
                                     )
                            ),# End of Costa Frontier 
+                           #####
                            tabPanel("MDS Color Plots",
                                     fluidPage(
                                             # Application title

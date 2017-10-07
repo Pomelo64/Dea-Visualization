@@ -37,6 +37,11 @@ options(expressions = 500000)
 
 # 9 September ----> optimization of cross-efficiency algorithm 
 
+# 19 September -----> DMU labels 
+
+# Scoping 
+
+
 
 set.seed(7)
 #####
@@ -53,14 +58,6 @@ vrs_eff <- function(dataset, num_of_inputs, orientation = "in"){
         dea(X = inputs, Y = outputs, RTS = "vrs" , DUAL = TRUE , ORIENTATION = orientation)
 } 
 
-# Co-plot Functions
-#####
-
-
-#####
-# Multiplot from http://www.cookbook-r.com/Graphs/Multiple_graphs_on_one_page_(ggplot2)/
-
-
 
 # Shiny Main Body
 #####
@@ -75,10 +72,52 @@ shinyServer(function(input, output) {
                 if (is.null(inFile))
                         return(NULL)
                 
-                read.csv(inFile$datapath, header=input$header, sep=input$sep, 
-                         quote=input$quote, stringsAsFactors = FALSE, dec = input$dec)
+                dataset <- read.csv(inFile$datapath, header=input$header, sep=input$sep, 
+                                    quote=input$quote, stringsAsFactors = FALSE, dec = input$dec)
                 
-                #read_delim(file = inFile$datapath, col_names = input$header , quote = input$quote,delim = input$sep  )
+                if (input$dmu_labels == TRUE) {
+                        assign(x = "dmu_names" , value =  dataset[,1], envir = .GlobalEnv  )
+                        
+                        return(dataset[,-1])
+                } else {
+                        assign(x = "dmu_names" , value =  1:nrow(dataset), envir = .GlobalEnv  )
+                        return(dataset)
+                }
+                
+        })
+        
+        
+        #returns two messages based on whether the dataset meets all the requirements or not
+        dataset_evaluation <- eventReactive(input$submit_button, {
+                
+                
+                #t <- datafile()
+                t <- data.frame(sapply(datafile(),parse_number))
+                dataset_evaluation_result <- vector(length = 3)
+                names(dataset_evaluation_result) <- c("Numerical Factors","Non-negative Factors","No Missing Value")
+                
+                
+                dataset_evaluation_result[1] <- ( sum(sapply(t,is.numeric)) == ncol(t) ) 
+                dataset_evaluation_result[2] <- ( !(FALSE %in% (t>=0)) ) 
+                dataset_evaluation_result[3] <- ( !(TRUE %in% is.na(t)) )
+                
+                ifelse(test = (FALSE %in% dataset_evaluation_result) , 
+                       yes = "Error! There is something wrong with the dataset. It maybe either having non-numeric data, negative values, or missing values." ,
+                       no = "Great! The dataset meets the requirements." )  
+                
+        })
+        
+        #sends the evaluation result as a message to UI
+        output$dataset_evaluation_message <- renderText({
+                
+                dataset_evaluation()
+                
+        })
+        
+        # send the verified dataset into a reactive expressing, so it can be used later on 
+        final_dataset_reactive <- reactive({
+                data.frame(sapply(datafile(),parse_number))
+                #ifelse(test = dataset_evaluation() == "Great! The dataset meets the requirements.",yes = data.frame(sapply(datafile(),parse_number)) , no = NULL ) 
         })
         
         #####
@@ -87,7 +126,6 @@ shinyServer(function(input, output) {
         # for generating the description of the dataset
         output$factors_info <- renderText({
                 t<- datafile()
-                
                 paste("The dataset of",nrow(t),"DMUs, composed of",as.numeric(input$num_of_inputs),"inputs, and",ncol(t)-as.numeric(input$num_of_inputs),"outputs.")
         })
         
@@ -128,42 +166,8 @@ shinyServer(function(input, output) {
         })
         
         ##### 
+        
         ## Evaluation of the uploaded data and passing data to computation part 
-        
-        #returns two messages based on whether the dataset meets all the requirements or not
-        dataset_evaluation <- eventReactive(input$submit_button, {
-                
-                
-                #t <- datafile()
-                t <- data.frame(sapply(datafile(),parse_number))
-                dataset_evaluation_result <- vector(length = 3)
-                names(dataset_evaluation_result) <- c("Numerical Factors","Non-negative Factors","No Missing Value")
-                
-                
-                dataset_evaluation_result[1] <- ( sum(sapply(t,is.numeric)) == ncol(t) ) 
-                dataset_evaluation_result[2] <- ( !(FALSE %in% (t>=0)) ) 
-                dataset_evaluation_result[3] <- ( !(TRUE %in% is.na(t)) )
-                
-                ifelse(test = (FALSE %in% dataset_evaluation_result) , 
-                       yes = "Error! There is something wrong with the dataset. It maybe either having non-numeric data, negative values, or missing values." ,
-                       no = "Great! The dataset meets the requirements." )  
-                
-        })
-        
-        #sends the evaluation result as a message to UI
-        output$dataset_evaluation_message <- renderText({
-                
-                dataset_evaluation()
-                #t <- datafile()
-                #t <- data.frame(sapply(t,parse_number))
-                #sapply(t,class)
-        })
-        
-        # send the verified dataset into a reactive expressing, so it can be used later on 
-        final_dataset_reactive <- reactive({
-                data.frame(sapply(datafile(),parse_number))
-                #ifelse(test = dataset_evaluation() == "Great! The dataset meets the requirements.",yes = data.frame(sapply(datafile(),parse_number)) , no = NULL ) 
-        })
         
         efficiencies_crs <- reactive({
                 dataset <- final_dataset_reactive()
@@ -184,7 +188,6 @@ shinyServer(function(input, output) {
                 
                 dea(X = inputs, Y = outputs, RTS = "vrs", DUAL = TRUE )
         })
-        
         
         # CEM MDU        
         #####
@@ -630,17 +633,6 @@ shinyServer(function(input, output) {
                         coord_fixed(ratio = 1,  expand = TRUE) +
                         ggtitle("Cross-Efficiency Unfolding")
                 
-                #g <- ggplot() + geom_point(data = row_df, aes(x = D1 , y = D2, color = "blue"),
-                #                           size = input$cem_row_point_size,
-                #                           shape = 19,
-                #                           alpha = input$cem_row_transparency) + 
-                #        geom_point(data = col_df, aes(x = D1 , y = D2, color = "red"),
-                #                   size = input$cem_col_point_size,
-                #                   shape = 24,
-                #                   alpha = input$cem_col_transparency) +
-                #        coord_fixed(ratio = 1,  expand = TRUE)
-                
-                
                 g <- g  + theme_linedraw() + annotate("text", x = Inf, y = -Inf, label = "© DEA-Viz",
                                                       hjust=1.1, vjust=-1.1, col="blue", cex=6,
                                                       fontface = "bold", alpha = 0.4) + 
@@ -651,13 +643,14 @@ shinyServer(function(input, output) {
                         coord_cartesian(xlim = cem_ranges$x, ylim = cem_ranges$y, expand = TRUE)
                 
                 #g
+                # here instead of DMU I would add dmu_label
                 g<- switch(EXPR = as.character(input$row_unfolding_labels), 
-                           "TRUE" = (g + geom_text_repel(data = row_df, aes(x = D1, y = D2 , label = DMU), color = "skyblue") ),
+                           "TRUE" = (g + geom_text_repel(data = row_df, aes(x = D1, y = D2 ), color = "skyblue", label = dmu_names) ),
                            "FALSE" = g 
                 )
                 
                 g<- switch(EXPR = as.character(input$col_unfolding_labels), 
-                           "TRUE" = (g + geom_text_repel(data = col_df, aes(x = D1, y = D2 , label = DMU), color = "orange") ),
+                           "TRUE" = (g + geom_text_repel(data = col_df, aes(x = D1, y = D2 ), color = "orange", label = dmu_names) ),
                            "FALSE" = g 
                 )
                 
@@ -744,7 +737,8 @@ shinyServer(function(input, output) {
                 
                 selectInput(inputId = "cem_dotplot_dmu_selection",
                             label = "Highlight a DMU in Dotplot Tab",
-                            choices = c("None",1:nrow(dataset))
+                            #choices = c("None",1:nrow(dataset))
+                            choices = c("None",dmu_names)
                 )
         })
         
@@ -755,7 +749,9 @@ shinyServer(function(input, output) {
                 dataset <- input_weights_dotplot_dataset()
                 
                 color <- rep("Others",nrow(dataset))
-                if (input$cem_dotplot_dmu_selection != "None") {color[as.numeric(input$cem_dotplot_dmu_selection)] <- "Selected"}
+                #if (input$cem_dotplot_dmu_selection != "None") {color[as.numeric(input$cem_dotplot_dmu_selection)] <- "Selected"}
+                if (input$cem_dotplot_dmu_selection != "None") {color[which(dmu_names==input$cem_dotplot_dmu_selection)] <- "Selected"}
+                
                 dataset$color <- as.factor(color)
                 
                 # for removing legend when there is no selected DMU
@@ -797,9 +793,16 @@ shinyServer(function(input, output) {
                 content = function(file) {
                         ptlist <- input_weight_plot_list_func()
                         ggsave(file, arrangeGrob(grobs = ptlist , ncol = 3),device = "png", dpi = 450)
-                        #ggsave(file, plot = cem_unfolding_plot(), device = "png", dpi = 450)
                 }
-        ) 
+        )
+        
+        output$download_cem_output_dotplot <- downloadHandler(
+                filename = "CEM_weight_output_dotplot.png",
+                content = function(file) {
+                        ptlist <- output_weights_plot_grid_func()
+                        ggsave(file, arrangeGrob(grobs = ptlist , ncol = 3),device = "png", dpi = 450)
+                }
+        )
         
         
         output$input_weights_dotplots <-  renderPlot({
@@ -984,7 +987,7 @@ shinyServer(function(input, output) {
                         coord_cartesian(xlim = cem_weight_plot_ranges$x, ylim = cem_weight_plot_ranges$y, expand = TRUE)
                 
                 switch(EXPR = as.character(input$cem_biplot_point_labels), 
-                       "TRUE" = (g + geom_text_repel(data = z1, aes(x = PC1, y = PC2 , label = DMU), color = "blue") ),
+                       "TRUE" = (g + geom_text_repel(data = z1, aes(x = PC1, y = PC2 ), color = "blue", label = dmu_names) ),
                        "FALSE" = g 
                 )
                 
@@ -1045,7 +1048,7 @@ shinyServer(function(input, output) {
                         coord_cartesian(xlim = cem_weight_plot_ranges$x, ylim = cem_weight_plot_ranges$y, expand = TRUE)
                 
                 switch(EXPR = as.character(input$cem_biplot_point_labels), 
-                       "TRUE" = (g + geom_text_repel(data = points, aes(x = D1, y = D2 , label = DMU), color = "blue") ),
+                       "TRUE" = (g + geom_text_repel(data = points, aes(x = D1, y = D2 ), color = "blue", label = dmu_names) ),
                        "FALSE" = g 
                 )
                 
@@ -1224,7 +1227,7 @@ shinyServer(function(input, output) {
                 
                 #g
                 switch(EXPR = as.character(input$Porembski_labels), 
-                       "TRUE" = (g + geom_text_repel(data = points_df, aes(x = X1, y = X2 , label = DMU), color = "blue") ),
+                       "TRUE" = (g + geom_text_repel(data = points_df, aes(x = X1, y = X2 ), color = "blue", label = dmu_names) ),
                        "FALSE" = g 
                 )
                 
@@ -1364,7 +1367,7 @@ shinyServer(function(input, output) {
                         coord_cartesian(xlim = biplot_ranges$x, ylim = biplot_ranges$y, expand = TRUE)
                 
                 switch(EXPR = as.character(input$biplot_labels), 
-                       "TRUE" = (g + geom_text_repel(data = z1, aes(x = PC1, y = PC2 , label = DMU), color = "blue") ),
+                       "TRUE" = (g + geom_text_repel(data = z1, aes(x = PC1, y = PC2 ), color = "blue", label = dmu_names) ),
                        "FALSE" = g 
                 )
                 
@@ -1663,7 +1666,7 @@ shinyServer(function(input, output) {
                 g<- g + coord_cartesian(xlim = Costa_ranges$x, ylim = Costa_ranges$y, expand = TRUE)
                 #g
                 switch(EXPR = as.character(input$Costa_labels), 
-                       "TRUE" = (g + geom_text_repel(data = t, aes(x = I, y = O , label = 1:nrow(t)), color = "blue") ),
+                       "TRUE" = (g + geom_text_repel(data = t, aes(x = I, y = O ), color = "blue", label = dmu_names) ),
                        "FALSE" = g 
                 )
         })
@@ -1908,7 +1911,7 @@ shinyServer(function(input, output) {
                 
                 #g
                 switch(EXPR = as.character(input$mds_labels), 
-                       "TRUE" = (g + geom_text_repel(data = final_dataset, aes(x = D1, y = D2 , label = 1:nrow(final_dataset)), color = "blue") ),
+                       "TRUE" = (g + geom_text_repel(data = final_dataset, aes(x = D1, y = D2 ), color = "blue", label = dmu_names) ),
                        "FALSE" = g 
                 )
                 
