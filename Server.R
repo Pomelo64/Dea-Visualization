@@ -11,6 +11,8 @@ library(ggrepel)
 library(DT)
 library(gridExtra)
 library(RColorBrewer)
+library(PerformanceAnalytics) # for correlation plot
+library(corrplot) # for correlation plot
 #library(shinyjs)
 options(expressions = 500000)
 
@@ -39,7 +41,18 @@ options(expressions = 500000)
 
 # 19 September -----> DMU labels 
 
+# 25 September -----> Efficiency distributions/dotplots 
+# 25 September -----> correlation visualization 
+
+# BUG: CEM MDU dotplots cannot handle single input or single output 
+
+# Note: the chart.Correlation() function of PerformanceAnalytics returns warning 
+# it may intrupt the applet in the cloud 
+# shall be removed, alas! 
+# it is possible to use http://www.statmethods.net/graphs/scatterplot.html
+
 # Scoping 
+# isolation - now all plots are generated, pressing the button just shows them! 
 
 
 
@@ -473,7 +486,7 @@ shinyServer(function(input, output) {
                 #print(identical(round(CEM,4),round(cem_matrix_multiplication,4)))
                 #print(sum(round(CEM,4)==round(cem_matrix_multiplication,4))) 
                 #print("-----")
-                
+                print(diag(CEM))
                 return(CEM)
                 
         }
@@ -552,8 +565,10 @@ shinyServer(function(input, output) {
                         input_standardization_factor <-
                                 apply(X = weight_dataset[,(number_of_outputs+1):number_of_variables] 
                                       , MARGIN = 1 , FUN = sum )
+                        
                         standardized_inputs <-
                                 weight_dataset[,(number_of_outputs+1):number_of_variables]/input_standardization_factor
+                        
                 } else {
                         standardized_inputs <-
                                 weight_dataset[,(number_of_outputs+1):number_of_variables]/
@@ -2067,6 +2082,171 @@ shinyServer(function(input, output) {
                 }
         ) 
         
+        # efficiency dotplots 
+        eff_ptlist_func <- reactive({
+                
+                dataset <- dotplot_dataset()
+                number_of_inputs <- input$num_of_inputs
+                number_of_variables <- ncol(dataset)
+                
+                #c("crs","vrs","fdh","irs","add","fdh+")
+                eff_df <- data.frame(
+                        crs = dea(X = dataset[,1:number_of_inputs], Y = dataset[,(number_of_inputs+1):(number_of_variables)],RTS = "crs" )$eff, 
+                        vrs = dea(X = dataset[,1:number_of_inputs], Y = dataset[,(number_of_inputs+1):(number_of_variables)],RTS = "vrs" )$eff, 
+                        fdh = dea(X = dataset[,1:number_of_inputs], Y = dataset[ ,(number_of_inputs+1):(number_of_variables) ] ,RTS = "fdh" )$eff, 
+                        drs = dea(X = dataset[,1:number_of_inputs], Y = dataset[,(number_of_inputs+1):(number_of_variables)],RTS = "drs" )$eff, 
+                        irs = dea(X = dataset[,1:number_of_inputs], Y = dataset[,(number_of_inputs+1):(number_of_variables)],RTS = "irs" )$eff, 
+                        add = dea(X = dataset[,1:number_of_inputs], Y = dataset[,(number_of_inputs+1):(number_of_variables)],RTS = "add" )$eff
+                        #fdh_plus = dea(X = dataset[,1:number_of_inputs], Y = dataset[,(number_of_inputs+1):(number_of_variables)],RTS = "fdh+" )$eff 
+                        
+                )
+                
+                selected_effs <- as.numeric(input$eff_vars_checkbox)
+                
+                
+                color <- rep("Others",nrow(eff_df))
+                if (input$dotplot_dmu_selection != "None") {color[as.numeric(input$dotplot_dmu_selection)] <- "Selected"}
+                eff_df$color <- as.factor(color)
+                
+                
+                #myColors <- brewer.pal(2,"Set1")
+                #names(myColors) <- levels(dataset$color)
+                
+                # for removing legend when there is no selected DMU
+                if (input$dotplot_dmu_selection == "None" ) {
+                        all_plots <- lapply(X = 1:number_of_variables, function(x) ggplot()+
+                                                    geom_dotplot(data = eff_df, aes(x = eff_df[,x],fill = color) , alpha = 0.6)+ 
+                                                    theme_linedraw()+
+                                                    xlab(colnames(eff_df)[x]) +  
+                                                    scale_fill_manual(name = "DMUs", values =  c("Others"="blue" , "Selected"="orange")) +
+                                                    guides(fill = FALSE )
+                                            
+                        )
+                        
+                } else {
+                        all_plots <- lapply(X = 1:number_of_variables, function(x) ggplot()+
+                                                    geom_dotplot(data = eff_df, aes(x = eff_df[,x],fill = color) , alpha = 0.6)+ 
+                                                    theme_linedraw()+
+                                                    xlab(colnames(eff_df)[x]) +  
+                                                    scale_fill_manual(name = "DMUs", values =  c("Others"="blue" , "Selected"="orange")) 
+                                            
+                        )
+                        
+                }
+                
+                
+                
+                # or maybe for loop works with print() around the ggplot command
+                # or using a middle variable g, then taking out the ggplot part and put it in the list 
+                
+                
+                #select only the plots of chosen variables
+                to_select <- c(1:ncol(eff_df)) %in% selected_effs
+                ptlist <- all_plots[to_select] 
+                
+                if (length(ptlist)==0) return(NULL)
+                
+                ptlist
+                #grid.arrange(grobs=ptlist,ncol=2)
+                
+        })
+        
+        dotplot_eff_plot_func <- reactive({
+                ptlist <- eff_ptlist_func()
+                grid.arrange(grobs=ptlist,ncol=2)
+        })
+        
+        dotplot_eff_plot_eventReactive <- eventReactive(input$dotplot_efficiency_button,{
+                dotplot_eff_plot_func()
+        })
+        
+        output$dotplot_efficiency_plot <-  renderPlot({
+                #dotplot_plot_func()
+                dotplot_eff_plot_eventReactive()
+        })
+        
+        output$download_dotplot_efficiency <- downloadHandler(
+                
+                filename = paste0("Dotplot_eff",".png"), 
+                
+                content = function(file) {
+                        ptlist <- eff_ptlist_func()
+                        ggsave(file, arrangeGrob(grobs = ptlist , ncol = 3),device = "png", dpi = 450)
+                }
+        )
+        
+        # ----- Correlation Plot 
+        
+        correlation_event_data <- eventReactive(input$correlation_button,{
+                d <- final_dataset_reactive()
+                return(d)
+        })
+        
+        correlation_data <- reactive({
+                
+                dataset <- correlation_event_data()
+                number_of_inputs <- input$num_of_inputs
+                number_of_variables <- ncol(dataset)
+                
+                #c("crs","vrs","fdh","irs","add","fdh+")
+                eff_df <- data.frame(
+                        crs = dea(X = dataset[,1:number_of_inputs], Y = dataset[,(number_of_inputs+1):(number_of_variables)],RTS = "crs" )$eff, 
+                        vrs = dea(X = dataset[,1:number_of_inputs], Y = dataset[,(number_of_inputs+1):(number_of_variables)],RTS = "vrs" )$eff, 
+                        fdh = dea(X = dataset[,1:number_of_inputs], Y = dataset[ ,(number_of_inputs+1):(number_of_variables) ] ,RTS = "fdh" )$eff, 
+                        drs = dea(X = dataset[,1:number_of_inputs], Y = dataset[,(number_of_inputs+1):(number_of_variables)],RTS = "drs" )$eff, 
+                        irs = dea(X = dataset[,1:number_of_inputs], Y = dataset[,(number_of_inputs+1):(number_of_variables)],RTS = "irs" )$eff, 
+                        add = dea(X = dataset[,1:number_of_inputs], Y = dataset[,(number_of_inputs+1):(number_of_variables)],RTS = "add" )$eff
+                        #fdh_plus = dea(X = dataset[,1:number_of_inputs], Y = dataset[,(number_of_inputs+1):(number_of_variables)],RTS = "fdh+" )$eff 
+                        
+                )
+                
+                agg_data <- list(dataset,eff_df)
+                
+                #print("corr data is ready!")
+                
+                return(agg_data)
+        })
+        
+        output$correlation_plot <- renderPlot({
+                dataset <- correlation_data() 
+                #print("dataset is here")
+                #print(class(dataset))
+                
+                if (isolate(input$correlation_dataset) == "Variables without Efficiency Scores") {
+                        corr_data <- dataset[[1]]
+                } else if ((isolate(input$correlation_dataset) == "Variables with CRS Efficiency")) {
+                        corr_data <- cbind(dataset[[1]],CRS = dataset[[2]][,1])
+                } else if ((isolate(input$correlation_dataset) == "Variables with VRS Efficiency")) {
+                        corr_data <- cbind(dataset[[1]],VRS = dataset[[2]][,2])
+                } else if ((isolate(input$correlation_dataset) == "Variables with FDH Efficiency")) {
+                        corr_data <- cbind(dataset[[1]],FDH = dataset[[2]][,3])
+                } else if ((isolate(input$correlation_dataset) == "Variables with DRS Efficiency")) {
+                        corr_data <- cbind(dataset[[1]],DRS = dataset[[2]][,4])
+                } else if ((isolate(input$correlation_dataset) == "Variables with IRS Efficiency")) {
+                        corr_data <- cbind(dataset[[1]],IRS = dataset[[2]][,5])
+                } else if ((isolate(input$correlation_dataset) == "Variables with ADD Efficiency")) {
+                        corr_data <- cbind(dataset[[1]],ADD = dataset[[2]][,6])
+                }
+                
+                
+                if (isolate(input$correlation_package) == "CorrPlot") {
+                        corrplot(cor(as.matrix(corr_data)), order = "original", 
+                                 tl.col = "black", tl.srt = 45,type = "lower")
+                        
+                        
+                } else if (isolate(input$correlation_package) == "HeatMap") {
+                        col<- colorRampPalette(c("blue", "white", "red"))(20)
+                        heatmap(x = cor(x =as.matrix(corr_data) ) , col = col, symm = TRUE)
+                        
+                } else {
+                        chart.Correlation(corr_data, histogram=TRUE, pch=19) 
+                }
+                
+                
+                
+                
+                
+        })
         
         
         

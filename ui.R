@@ -89,7 +89,7 @@ shinyUI(
                 navbarMenu('Plots',
                            # Simple variable histograms 
                            ##### 
-                           tabPanel("Variable Histograms",
+                           tabPanel("Distributions",
                                     fluidPage(
                                             
                                             # Application title
@@ -108,7 +108,74 @@ shinyUI(
                                                             # dynamic UI of checkbox inputs
                                                             uiOutput("dotplot_var_selection_ui"), 
                                                             uiOutput("dotplot_dmu_selection_ui"),
-                                                            actionButton("dotplot_button","Plot") 
+                                                            actionButton("dotplot_button","Plot"),
+                                                            tags$hr(), 
+                                                            helpText("Select Efficiency distribution(s) to be visualized"), 
+                                                            #checkboxGroupInput("eff_vars", "Select Efficiency distribution(s) for Visualization", label =  c("crs","fdh","vrs","irs","add","fdh+"), selected = "crs")
+                                                            checkboxGroupInput(inputId = "eff_vars_checkbox",label = "Select Efficiency(s)",choiceNames = as.list(c("crs","vrs","fdh","drs","irs","add")), choiceValues = as.list(c(1,2,3,4,5,6)),selected = NULL ),
+                                                            actionButton("dotplot_efficiency_button","Plot")
+                                                            
+                                                            
+                                                            
+                                                            
+                                                    ),
+                                                    
+                                                    
+                                                    # Show the caption, a summary of the dataset and an HTML 
+                                                    # table with the requested number of observations
+                                                    mainPanel(
+                                                            id = 'Histrograms_tabset',
+                                                            tabsetPanel(
+                                                                    tabPanel( "Variable Distributions",
+                                                                              plotOutput("dotplot_plot",width = "800px",height = "600px"),
+                                                                              
+                                                                              #textOutput("dotplot_info")
+                                                                              #DT::dataTableOutput("dotplot_brush_info")
+                                                                              downloadButton('download_dotplot', 'Download the Plot')
+                                                                    ),
+                                                                    tabPanel("Efficiency Distributions",
+                                                                             plotOutput("dotplot_efficiency_plot",width = "800px",height = "600px"),
+                                                                             
+                                                                             #textOutput("dotplot_info")
+                                                                             #DT::dataTableOutput("dotplot_brush_info")
+                                                                             downloadButton('download_dotplot_efficiency', 'Download the Plot')
+                                                                             
+                                                                    )
+                                                            )
+                                                            
+                                                            
+                                                            
+                                                            
+                                                    )
+                                            )
+                                    ) 
+                           ),
+                           tabPanel("Correlations",
+                                    fluidPage(
+                                            # Application title
+                                            titlePanel("Correlation Plots"),
+                                            
+                                            sidebarLayout(
+                                                    
+                                                    sidebarPanel(
+                                                            
+                                                            helpText("Note: Choose the set of variables and the visualization",
+                                                                     "approach to correlation matrix, then press button to see",
+                                                                     "the correlation plot."), 
+                                                            tags$hr(),
+                                                            
+                                                            radioButtons("correlation_dataset",label = "Dataset of Correlations", 
+                                                                         choices = list("Variables without Efficiency Scores",
+                                                                                        "Variables with CRS Efficiency",
+                                                                                        "Variables with VRS Efficiency",
+                                                                                        "Variables with FDH Efficiency",
+                                                                                        "Variables with DRS Efficiency",
+                                                                                        "Variables with IRS Efficiency",
+                                                                                        "Variables with ADD Efficiency"
+                                                                         )),
+                                                            radioButtons("correlation_package",label = "Correlation Package", choices = list("CorrPlot","HeatMap","Performance Analytics")),
+                                                            
+                                                            actionButton("correlation_button","Plot") 
                                                             
                                                             
                                                     ),
@@ -118,18 +185,18 @@ shinyUI(
                                                     # table with the requested number of observations
                                                     mainPanel(
                                                             
+                                                            #plotOutput("biplot_plot"),
+                                                            plotOutput("correlation_plot",width = "800px",height = "600px"),
                                                             
-                                                            plotOutput("dotplot_plot",width = "800px",height = "600px"),
-                                                            
-                                                            #textOutput("dotplot_info")
-                                                            #DT::dataTableOutput("dotplot_brush_info")
-                                                            downloadButton('download_dotplot', 'Download the Plot')
-                                                            
+                                                            downloadButton('download_correlation', 'Download the Plot')
+                                                            #tableOutput("mds_info")
+                                                            #DT::dataTableOutput("mds_brush_info")
                                                             
                                                     )
                                             )
-                                    ) 
-                           ),
+                                    )
+                           ), # Correlations
+                           
                            # CEM MDU
                            #####  
                            tabPanel("CEM MDU",
