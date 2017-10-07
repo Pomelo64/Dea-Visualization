@@ -2,7 +2,7 @@ library(shiny)
 library(lpSolve)
 library(Benchmarking)
 library(smacof)
-library(plotly)
+
 
 
 
@@ -117,8 +117,8 @@ shinyUI(
                                                             actionButton("cem_mdu_button","Plot"), 
                                                             tags$hr(),
                                                             
-                                                            sliderInput("cem_row_point_size", label = "Row Objects Point Size", min = 1 , max = 4 , value = 1),
-                                                            sliderInput("cem_col_point_size", label = "Col Objects Point Size", min = 1 , max = 4 , value = 1), 
+                                                            sliderInput("cem_row_point_size", label = "Row Objects Point Size", min = 1 , max = 10 , value = 4),
+                                                            sliderInput("cem_col_point_size", label = "Col Objects Point Size", min = 1 , max = 10 , value = 4), 
                                                             sliderInput("cem_row_transparency", label = "Row Objects Transparency", min = 0.1 , max = 1 , value = 0.5),
                                                             sliderInput("cem_col_transparency", label = "Col Objects Transparency", min = 0.1 , max = 1 , value = 0.5),
                                                             
@@ -133,8 +133,7 @@ shinyUI(
                                                     # table with the requested number of observations
                                                     mainPanel(
                                                             
-                                                            #plotlyOutput("cem_mdu_plot"),
-                                                            #plotlyOutput("cem_mdu_plot"),
+                                                            
                                                             plotOutput("cem_mdu_plot",
                                                                        dblclick = "cem_dblclick",
                                                                        brush = brushOpts(
@@ -155,53 +154,7 @@ shinyUI(
                            ),
                            #####
                            # Coplot
-                           #####
-                           
-                           tabPanel("Co-Plot",
-                                    fluidPage(
-                                            
-                                            # Application title
-                                            titlePanel("Co-Plot"),
-                                            
-                                            sidebarLayout(
-                                                    
-                                                    sidebarPanel(
-                                                            
-                                                            helpText("Note: By pressing the 'plot' button, the uploaded data",
-                                                                     "would be visualized on the right panel using co-plot ",
-                                                                     "method.(Adler & Raveh, 2008) Further , the below",
-                                                                     "widgets could help to have a better final map."), 
-                                                            tags$hr(),
-                                                            actionButton("coplot_button","Plot"), 
-                                                            tags$hr(),
-                                                            
-                                                            sliderInput("coplot_point_size", label = "Point Size", min = 1 , max = 4 , value = 1),
-                                                            sliderInput("coplot_point_transparency", label = "Point Transparency", min = 0.1 , max = 1 , value = 0.5),
-                                                            sliderInput("coplot_vector_transparency", label = "Vector Transparency", min = 0.1 , max = 1 , value = 0.5),
-                                                            sliderInput("coplot_vector_treshold", label = "Vector Treshold", min = 0.1 , max = 0.95 , value = 0.5),
-                                                            
-                                                            checkboxInput('coplot_labels', 'Labels', TRUE)
-                                                            
-                                                    ),
-                                                    
-                                                    
-                                                    # Show the caption, a summary of the dataset and an HTML 
-                                                    # table with the requested number of observations
-                                                    mainPanel(
-                                                            
-                                                            plotlyOutput("coplot_plot"),
-                                                            #plotlyOutput("cem_mdu_plot"),
-                                                            tableOutput("coplot_info")
-                                                            #tableOutput("cem_mdu_info")
-                                                            #plotOutput("coplot_verify"),
-                                                            #downloadButton('download_coplot', 'Download the Plot')
-                                                            
-                                                            
-                                                            
-                                                    )
-                                            )
-                                    ) 
-                           ),
+                           # Removed Due to Code bugs. Replaced by MDS plots
                            #####
                            # Porembski 
                            #####
@@ -226,9 +179,9 @@ shinyUI(
                                                             
                                                             tags$hr(),
                                                             
-                                                            sliderInput("Porembski_point_size", label = "Point Size", min = 1 , max = 4 , value = 1),
+                                                            sliderInput("Porembski_point_size", label = "Point Size", min = 1 , max = 10 , value = 4),
                                                             sliderInput("Porembski_point_transparency", label = "Point Transparency", min = 0.1 , max = 1 , value = 0.5),
-                                                            sliderInput("Porembski_edge_transparency", label = "Edge Transparency", min = 1 , max = 5 , value = 1),
+                                                            sliderInput("Porembski_edge_transparency", label = "Edge Transparency", min = 1 , max = 10 , value = 4),
                                                             sliderInput("Porembski_edge_treshold", label = "Edge Treshold", min = 0 , max = 0.95 , value = 0),
                                                             
                                                             checkboxInput('Porembski_labels', 'Labels', TRUE)
@@ -248,7 +201,7 @@ shinyUI(
                                                                                resetOnNew = TRUE
                                                                        )
                                                             ),
-                                                            #plotlyOutput("cem_mdu_plot"),
+                                                            
                                                             tableOutput("Porembski_info"),
                                                             
                                                             downloadButton('download_Porembski', 'Download the Plot')
@@ -281,12 +234,13 @@ shinyUI(
                                                             
                                                             radioButtons("biplot_dea_model",label = "DEA Model for Coloring", choices = list("CRS", "VRS"),selected = "CRS"),
                                                             
-                                                            sliderInput("biplot_point_size", label = "Point Size", min = 1 , max = 4 , value = 1),
+                                                            sliderInput("biplot_point_size", label = "Point Size", min = 1 , max = 10 , value = 4),
                                                             sliderInput("biplot_point_transparency", label = "Point Transparency", min = 0.1 , max = 1 , value = 0.5),
                                                             sliderInput("biplot_vector_transparency", label = "Vector Transparency", min = 0.1 , max = 1 , value = 0.5),
-                                                            sliderInput("biplot_vector_size", label = "Vector Size", min = 1 , max = 5 , value = 1),
+                                                            sliderInput("biplot_vector_size", label = "Vector Size", min = 1 , max = 10 , value = 4),
                                                             #sliderInput("biplot_vector_treshold", label = "Vector Treshold", min = 0 , max = 0.95 , value = 0),
                                                             sliderInput("biplot_vector_text_size", label = "Vector Text Size", min = 1 , max = 10 , value =2 ),
+                                                            #sliderInput("biplot_vector_text_size", label = "Vector Text Size", min = 1 , max = 10 , value =2 ),
                                                             checkboxInput('biplot_labels', 'Labels', TRUE)
                                                             
                                                     ),
@@ -392,13 +346,13 @@ shinyUI(
                                                             
                                                             
                                                             
-                                                            sliderInput("Costa_point_size", label = "Point Size", min = 1 , max = 4 , value = 1),
+                                                            sliderInput("Costa_point_size", label = "Point Size", min = 1 , max = 10 , value = 4),
                                                             sliderInput("Costa_point_transparency", label = "Point Transparency", min = 0.1 , max = 1 , value = 0.5),
                                                             #sliderInput("biplot_vector_transparency", label = "Vector Transparency", min = 0.1 , max = 1 , value = 0.5),
                                                             #sliderInput("biplot_vector_size", label = "Vector Size", min = 1 , max = 5 , value = 1),
                                                             #sliderInput("biplot_vector_treshold", label = "Vector Treshold", min = 0 , max = 0.95 , value = 0),
                                                             #sliderInput("biplot_vector_text_size", label = "Vector Text Size", min = 1 , max = 10 , value =2 ),
-                                                            checkboxInput('biplot_labels', 'Labels', TRUE)
+                                                            checkboxInput('Costa_labels', 'Labels', TRUE)
                                                             
                                                     ),
                                                     
@@ -452,7 +406,7 @@ shinyUI(
                                                             
                                                             
                                                             
-                                                            sliderInput("mds_point_size", label = "Point Size", min = 1 , max = 4 , value = 1),
+                                                            sliderInput("mds_point_size", label = "Point Size", min = 1 , max = 10 , value = 4),
                                                             sliderInput("mds_point_transparency", label = "Point Transparency", min = 0.1 , max = 1 , value = 0.5),
                                                             #sliderInput("biplot_vector_transparency", label = "Vector Transparency", min = 0.1 , max = 1 , value = 0.5),
                                                             #sliderInput("biplot_vector_size", label = "Vector Size", min = 1 , max = 5 , value = 1),
@@ -488,6 +442,54 @@ shinyUI(
                 
                 
                 
-                tabPanel('About')
-        )
-)
+                tabPanel("Read Me!",
+                         fluidPage(
+                                 # Application title
+                                 titlePanel("About the App and its Developer"),
+                                 
+                                 sidebarLayout(
+                                         
+                                         sidebarPanel(
+                                                 tags$div(
+                                                         "This app is created and currently under development by Shahin Ashkiani. It was made public in 16th Aug 2017. ",
+                                                         tags$br(),
+                                                         "The current version needs several improvements and amendments, however this boat even at this ",
+                                                         "level can sail. If not a sea, but it can survive lakes!",
+                                                         tags$br(),
+                                                         
+                                                         tags$br(),
+                                                         "To contact me you can use the following address:", 
+                                                         tags$br(),
+                                                         " <Contact@shahin-ashkiani.com>.", 
+                                                         tags$br(),
+                                                         "You can also visit my website at here:",
+                                                         tags$a(href="www.Shahin-Ashkiani.com", "www.Shahin-Ashkiani.com"), 
+                                                         tags$br(),
+                                                         tags$br(),
+                                                         tags$br(),
+                                                         "© Shahin Ashkiani 2017
+                                                         [August 2017]
+                                                         Except as permitted by the European copyright law applicable to you, you may not reproduce any of the parts on this website. The files downloadable from this website, unless with proper citation of the applet and its author.
+                                                         I may change these terms of use from time to time."
+                                                 )
+                                                 
+                                                 #tags$a(href="www.Shahin-Ashkiani.com", "www.Shahin-Ashkiani.com") 
+                                                 
+                                                 
+                                                 ),
+                                         
+                                         
+                                         # Show the caption, a summary of the dataset and an HTML 
+                                         # table with the requested number of observations
+                                         mainPanel(
+                                                 
+                                                 #"kos",
+                                                 #tags$img(src = "https://ibb.co/g3cjzv", width = "100px", height = "100px")
+                                                 img(src='Shahin-Shiny-Cartoon.png', width = "700px", height = "500px") 
+                                         )
+                                         )
+                                 )
+                )
+                
+                
+        ))
