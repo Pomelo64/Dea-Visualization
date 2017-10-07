@@ -11,6 +11,7 @@ library(ggrepel)
 library(DT)
 library(gridExtra)
 library(RColorBrewer)
+#library(shinyjs)
 
 # 17 August 10am ---> rectifying xlim ylim. Now all the points are seen clearly
 # 17 August  ------> experiment on Costa frontier to figure out the best combination of shape and color, also to add legend 
@@ -30,6 +31,8 @@ library(RColorBrewer)
 # 31 August -----> zero weights generated for Spanish Airports imputed standardized. Probably because of dea_4cem() . Use dea() 
 
 # 1 September ----> Bug resolving : Important! 
+# 2 September ----> PCA and MDS std weight plots are added 
+# 3 September ----> brushing, zooming ,and download button for the PCA/MDS weight plots 
 
 
 set.seed(7)
@@ -480,8 +483,8 @@ shinyServer(function(input, output) {
                 t = lp(direction = "max", objective.in = OF , const.mat = A , const.dir = C , const.rhs = rhs_total)
                 
                 #print(t$solution>=0)
-                print("CEM_unit output, ben opt weights")
-                print(t$solution)
+                #print("CEM_unit output, ben opt weights")
+                #print(t$solution)
                 return(t$solution)
         }
         
@@ -511,13 +514,13 @@ shinyServer(function(input, output) {
                         
                         
                         if ( sum(CEM_opt_weights[unit,]) == 0 ) { 
-                                print("------")
+                                #print("------")
                                 
-                                print(CEM_opt_weights[unit,])
-                                print("replaced with")
+                                #print(CEM_opt_weights[unit,])
+                                #print("replaced with")
                                 #print(sum(CEM_opt_weights[unit,]))
                                 CEM_opt_weights[unit,] <- eff_weight_mat[unit,]
-                                print(eff_weight_mat[unit,])
+                                #print(eff_weight_mat[unit,])
                         }
                 }
                 
@@ -834,9 +837,9 @@ shinyServer(function(input, output) {
                 if (input$cem_dotplot_dmu_selection != "None") {color[as.numeric(input$cem_dotplot_dmu_selection)] <- "Selected"}
                 dataset$color <- as.factor(color)
                 
-                print("-----")
-                print("dmu selected for cem dotplots")
-                print(input$cem_dotplot_dmu_selection)
+                #print("-----")
+                #print("dmu selected for cem dotplots")
+                #print(input$cem_dotplot_dmu_selection)
                 
                 #myColors <- brewer.pal(2,"Set1")
                 #names(myColors) <- levels(dataset$color)
@@ -986,6 +989,221 @@ shinyServer(function(input, output) {
                 datatable(dataset)
                 
         })
+        
+        #---- weight biplot tabset of CEM  
+        
+        opt_weight_mds_data <- eventReactive(input$cem_mdu_button,{
+                # --- Mds data
+                dataset <- final_dataset_reactive()
+                weights <- ben_weights(dataset = dataset , number_of_inputs = input$num_of_inputs)
+                std_weights_list <- weight_standardization(weight_dataset = weights, number_of_inputs = 3)
+                std_weights_mat <-cbind(std_weights_list[[1]],std_weights_list[[2]])
+                
+                #print(paste0("std_weights_mat dim:",dim(std_weights_mat)))
+                
+                colnames(std_weights_mat) <- paste(colnames(dataset),"weight",sep = " ")
+                
+                #print(paste0("colnames of std_weights_mat:", colnames(std_weights_mat)))
+                
+                std_weights_dist <- dist(x = std_weights_mat, method = "euclidean")
+                mds_model <- smacofSym(delta = std_weights_dist, ndim = 2 , type = "ratio"  )
+                
+                #print(paste0("dim of std_weights_dist", dim(matrix(std_weights_dist))) )
+                #print(paste0("mds_model conf dim:", dim(mds_model$conf)))
+                #print(head(mds_model$conf))
+                
+                t <- list(weights = data.frame(std_weights_mat), mds_coo = data.frame(DMU = 1:nrow(dataset) , mds_model$conf) ) 
+                #print(head(t[[1]]))
+                #print(head(t[[2]]))
+                
+                return(t)
+                
+        })
+        
+        opt_weight_biplot_data <- eventReactive(input$cem_mdu_button,{
+                
+                dataset <- final_dataset_reactive()
+                weights <- ben_weights(dataset = dataset , number_of_inputs = input$num_of_inputs)
+                std_weights_list <- weight_standardization(weight_dataset = weights, number_of_inputs = 3)
+                std_weights_mat <-cbind(std_weights_list[[1]],std_weights_list[[2]])
+                colnames(std_weights_mat) <- paste(colnames(dataset),"weight",sep = " ")
+                weights_pca <- prcomp(std_weights_mat)
+                
+                coordinates <- data.frame(DMU = 1:nrow(dataset), weights_pca$x[,1:2]) 
+                vectors <- data.frame(Variables = (rownames(weights_pca$rotation)), weights_pca$rotation[, 1:2])
+                
+                list(coordinates,vectors)
+                
+        })
+        
+        cem_biplot_func <- reactive({
+                #----biplot version
+                z <- opt_weight_biplot_data()
+                z1 <- z[[1]] #coordinates
+                z2 <- z[[2]] #vectors
+                
+                #print("after Z1 and Z2")
+                
+                total_min <-  min(z1$PC1,z1$PC2)
+                total_max <- max(z1$PC1,z1$PC2)
+                total_max <- ifelse(test = (total_max>0), yes = total_max, no = -total_max)
+                
+                
+                limit_range  <-   max(abs(total_min),abs(total_max))
+                
+                g <- ggplot() + 
+                        geom_point(data = z1, aes(x = PC1,y = PC2),size=input$cem_biplot_point_size, alpha = input$cem_biplot_point_transparency, color = "blue" ) +
+                        #scale_colour_manual(name = "DMU: CRS Eff.", values =  c("Efficient"="gold" , "Inefficient"="skyblue")) + 
+                        geom_segment(data=z2, 
+                                     aes(PC1*input$cem_biplot_vector_size/2, PC2*input$cem_biplot_vector_size/2, xend=0, yend=0), 
+                                     col="red",alpha = input$cem_biplot_vector_transparency ) +
+                        geom_text_repel(data=z2 ,
+                                        aes(x = PC1*input$cem_biplot_vector_size/2,y =  PC2*input$cem_biplot_vector_size/2, label = Variables ),
+                                        col="red", alpha = input$cem_biplot_vector_transparency, size = input$cem_biplot_vector_text_size )
+                
+                g<- g+ theme_linedraw()  + annotate("text", x = Inf, y = -Inf, label = "© DEA-Viz",
+                                                    hjust=1.1, vjust=-1.1, col="blue", cex=6,
+                                                    fontface = "bold", alpha = 0.4) +
+                        xlim(-total_max, total_max) +
+                        ylim(-total_max, total_max) +
+                        coord_fixed(ratio = 1) + 
+                        ggtitle("Optimum Weights PCA Biplot") 
+                
+                
+                ##g <- g  + 
+                ##        coord_cartesian(xlim = biplot_ranges$x, ylim = biplot_ranges$y, expand = TRUE)
+                
+                switch(EXPR = as.character(input$cem_biplot_point_labels), 
+                       "TRUE" = (g + geom_text_repel(data = z1, aes(x = PC1, y = PC2 , label = DMU), color = "blue") ),
+                       "FALSE" = g 
+                )
+                
+        })
+        
+        cem_mds_func <- reactive({
+                
+                mds_data <- opt_weight_mds_data()
+                
+                #print("-----")
+                #print(paste0("mds_Data class:",class(mds_data)))
+                
+                points <- cbind(mds_data[[2]],mds_data[[1]])
+                #weights <- mds_data[[1]]
+                
+                #print("=====")
+                #print("colnames of weights")
+                #print(colnames(points))
+                #print("can it find the right var?")
+                
+                #print(index)
+                #print(points[,index])
+                #print("=====")
+                
+                #print(paste0("cem mds points DIM:",points))
+                #print("-----")
+                #print("head of cem mds dataset")
+                #print(head(points))
+                #print("-----")
+                #print(input$cem_mds_var_selection_input)
+                
+                selected_var <- input$cem_mds_var_selection_input
+                
+                if( is.null(selected_var) ) {
+                        index <- 0 
+                } else if (selected_var == "None" ) {
+                        index <- 0 
+                } else {
+                        index <-  which(selected_var == colnames(points) )    
+                }
+                
+                
+                
+                total_min <-  min(points$D1,points$D2)
+                total_max <- max(points$D1,points$D2)
+                
+                
+                # here shows an error because of the input$cem_mds_var_selection_input inavailability at
+                # the start of the tabset section 
+                # what to do? may be delay works 
+                
+                
+                if (index != 0 ) {
+                        g <- ggplot() + 
+                                geom_point(data = points, aes(D1, D2, color = points[,index]),
+                                           
+                                           size=input$cem_biplot_point_size,
+                                           alpha = input$cem_biplot_point_transparency) +
+                                scale_colour_gradient(low = "blue", high = "red", name = colnames(points)[index] )
+                } else {
+                        g <- ggplot() + 
+                                geom_point(data = points, aes(D1, D2),
+                                           color = "blue",
+                                           size=input$cem_biplot_point_size,
+                                           alpha = input$cem_biplot_point_transparency) 
+                        #scale_colour_gradient(low = "blue", high = "red", name = colnames(points)[index] ) 
+                }
+                
+                g<- g+ theme_linedraw()  + annotate("text", x = Inf, y = -Inf, label = "© DEA-Viz",
+                                                    hjust=1.1, vjust=-1.1, col="blue", cex=6,
+                                                    fontface = "bold", alpha = 0.4) +
+                        xlim(total_min, total_max) +
+                        ylim(total_min, total_max) +
+                        coord_fixed(ratio = 1) + 
+                        ggtitle("Optimum Weights MDS map") 
+                
+                switch(EXPR = as.character(input$cem_biplot_point_labels), 
+                       "TRUE" = (g + geom_text_repel(data = points, aes(x = D1, y = D2 , label = DMU), color = "blue") ),
+                       "FALSE" = g 
+                )
+                
+        })
+        
+        
+        cem_weights_pca_mds_plot <- reactive({
+                switch(EXPR = input$cem_weight_plot_method, 
+                       "PCA" = cem_biplot_func(),
+                       "MDS" = cem_mds_func()
+                )
+                
+        })
+        
+        
+        output$opt_weights_plot <- renderPlot({
+                
+                #switch(EXPR = input$cem_weight_plot_method, 
+                #       "PCA" = cem_biplot_func(),
+                #       "MDS" = cem_mds_func()
+                #)
+                cem_weights_pca_mds_plot()
+        })
+        
+        output$download_cem_weight_plot <- downloadHandler(
+                filename = "CEM_weight_plot.png",
+                content = function(file) {
+                        #png(file)
+                        #print(cem_unfolding_plot())
+                        #dev.off()
+                        ggsave(file, plot = cem_weights_pca_mds_plot(), device = "png", dpi = 450)
+                }
+        ) 
+        
+        
+        output$cem_mds_var_selection_output <- renderUI({
+                dataset <- final_dataset_reactive()
+                variables <- c("None",paste(colnames(dataset),"weight",sep = ".") )
+                
+                switch(EXPR = input$cem_weight_plot_method,
+                       "MDS" = selectInput(inputId = "cem_mds_var_selection_input",
+                                           label = "Opt. Weight to Color",
+                                           choices = variables
+                       ), 
+                       "PCA" = NULL
+                )
+                
+        })
+        
+        
+        
         
         #End of CEM MDU
         
@@ -1183,11 +1401,7 @@ shinyServer(function(input, output) {
                 #print("crs shapes of biplot")
                 #print(z1$crs_shape)
                 z1$vrs_color <- ifelse(test = supp$vrs_efficiency ==1 , "Efficient", "Inefficient")
-                #print("vrs shapes of biplot")
-                #print(z1$vrs_shape)
-                #z1$shape <- switch(EXPR = input$biplot_dea_model, 
-                #                      "CRS" = ifelse(test = supp$crs_efficiency ==1 , 1, 19),
-                #                      "VRS" = ifelse(test = supp$vrs_efficiency ==1 , 1, 19) )
+                
                 
                 z2 <- data.frame(Variables = (rownames(x$rotation)), x$rotation[, 1:2])
                 
@@ -1692,6 +1906,7 @@ shinyServer(function(input, output) {
                                    "Ordinal" = "ordinal")
                 
                 smacofSym(delta = mds_dist, ndim = 2 , type = mds_type  )
+                
                 
         })
         

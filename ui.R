@@ -166,7 +166,17 @@ shinyUI(
                                                             sliderInput("cem_row_point_size", label = "Row Objects Point Size", min = 1 , max = 10 , value = 4),
                                                             sliderInput("cem_col_point_size", label = "Col Objects Point Size", min = 1 , max = 10 , value = 4), 
                                                             sliderInput("cem_row_transparency", label = "Row Objects Transparency", min = 0.1 , max = 1 , value = 0.5),
-                                                            sliderInput("cem_col_transparency", label = "Col Objects Transparency", min = 0.1 , max = 1 , value = 0.5)
+                                                            sliderInput("cem_col_transparency", label = "Col Objects Transparency", min = 0.1 , max = 1 , value = 0.5),
+                                                            tags$hr(),
+                                                            helpText("For Optimum Weights' Biplot:"),
+                                                            radioButtons("cem_weight_plot_method",label = "Data Reduction Method", choices = list("PCA", "MDS"),selected = "PCA"),
+                                                            checkboxInput('cem_biplot_point_labels', 'Biplot Point Labels', FALSE),
+                                                            uiOutput("cem_mds_var_selection_output"),
+                                                            sliderInput("cem_biplot_point_size", label = "Biplot Point Size", min = 1 , max = 10 , value = 4),
+                                                            sliderInput("cem_biplot_vector_size", label = "Biplot Vector Size", min = 1 , max = 10 , value = 2),
+                                                            sliderInput("cem_biplot_vector_text_size", label = "Biplot Vector Text Size", min = 1 , max = 10 , value = 4),
+                                                            sliderInput("cem_biplot_point_transparency", label = "Biplot Point Transparency", min = 0.1 , max = 1 , value = 0.5),
+                                                            sliderInput("cem_biplot_vector_transparency", label = "Biplot Vector Transparency",min = 0.1 , max = 1 , value = 0.5)
                                                             
                                                             
                                                             
@@ -207,6 +217,22 @@ shinyUI(
                                                                              
                                                                              DT::dataTableOutput("cem_weights_info"),
                                                                              DT::dataTableOutput("cem_weights_std_info")
+                                                                             
+                                                                             # now the dotplots using grid.arrange() similar to the simple dotplots
+                                                                             
+                                                                    ),
+                                                                    
+                                                                    tabPanel("Optimum Weights Plot",
+                                                                             
+                                                                             helpText("MDS of opt_weights"), 
+                                                                             plotOutput("opt_weights_plot",width = "800px",height = "600px"),
+                                                                             downloadButton('download_cem_weight_plot', 'Download the Plot')
+                                                                             #tags$hr(),
+                                                                             #helpText("Standardized Weights of Outputs"),
+                                                                             #plotOutput("output_weights_dotplots",width = "800px",height = "600px"),
+                                                                             
+                                                                             #DT::dataTableOutput("cem_weights_info"),
+                                                                             #DT::dataTableOutput("cem_weights_std_info")
                                                                              
                                                                              # now the dotplots using grid.arrange() similar to the simple dotplots
                                                                              
