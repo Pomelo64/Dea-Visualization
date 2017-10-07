@@ -8,11 +8,29 @@ library(devtools)
 library(ggplot2)
 library(kohonen)
 library(ggrepel)
-
+library(DT)
+library(gridExtra)
+library(RColorBrewer)
 
 # 17 August 10am ---> rectifying xlim ylim. Now all the points are seen clearly
 # 17 August  ------> experiment on Costa frontier to figure out the best combination of shape and color, also to add legend 
 # 17 August ----> ggrepel added to rectify the problem of overlapping texts 
+
+# 18 August ---> Legends added
+# 18 August ----> Size of the plots is fixed, so it would remain square and does not change by the size of browser
+# 18 August ----> Color difference between efficient and inefficient unit added
+
+# 19 August ----> Tooltip and tooltip table is added
+
+# 29 August ---->  dotplots of variables
+# 30 August ---->  download button for dotplots
+
+
+# 31 August ----> Benevolent weights standardization and their dotplots added. 
+# 31 August -----> zero weights generated for Spanish Airports imputed standardized. Probably because of dea_4cem() . Use dea() 
+
+# 1 September ----> Bug resolving : Important! 
+
 
 set.seed(7)
 #####
@@ -48,8 +66,6 @@ all_OFs = function(input_mat, output_mat) {
         
 }
 
-
-
 constraints_directions = function(input_mat) {
         #the = and <= directions of A matrix 
         # assuming that nrow(input_mat)==nrow(output_mat)
@@ -72,7 +88,8 @@ rhs = function(input_mat){
         t
 }
 
-simple_efficiency = function(input_mat,output_mat,epsilon_value = 0.00001){
+
+simple_efficiency = function(input_mat,output_mat,epsilon_value = 0.001){
         #this function is supposed to return the simple efficiency scores of all units. 
         #assuming that nrow(input_mat)==nrow(output_mat)
         number_of_units = nrow(input_mat)
@@ -115,105 +132,6 @@ simple_efficiency = function(input_mat,output_mat,epsilon_value = 0.00001){
 
 
 
-CEM_unit_agg =  function(input_mat , output_mat , unit , epsilon = 0.00001){
-        #this function must return the the aggresive optimum weights for the given unit 
-        
-        #requires Benchmarking library
-        #requires lpSolve library
-        
-        
-        number_of_units = nrow(input_mat)
-        input_mat = as.matrix(input_mat)
-        output_mat = as.matrix(output_mat)
-        number_of_inputs = ncol(input_mat)
-        number_of_outputs = ncol(output_mat)
-        
-        #we need the simple efficiency of the given unit 
-        
-        eff_weight_mat = dea_4cem(input_mat = input_mat, output_mat = output_mat )
-        simple_eff = eff_weight_mat[,1]
-        unit_simple_eff = simple_eff[unit]
-        
-        output_mat_refined = output_mat[-unit,]
-        OF = apply(output_mat_refined,2,sum)
-        OF = c(OF,rep(0,number_of_inputs))
-        
-        d = number_of_inputs + number_of_outputs
-        
-        #preparing the A matrix
-        A_middle = diag(d)
-        A_upper=A_mat(unit=unit, input_mat=input_mat, output_mat=output_mat)
-        A_last = c(output_mat[unit,],-1*unit_simple_eff*input_mat[unit,])
-        A = rbind(A_upper,A_middle,A_last)
-        #two new lines
-        input_mat_refined = input_mat[-unit,]
-        A[1,] = c(rep(0,number_of_outputs),apply(input_mat_refined,2,sum))
-        
-        #preparing the constraint directions
-        C_upper = c("==",rep("<=",number_of_units-1))
-        C_middle = rep(">=",d)
-        C_last = "=="
-        C = c(C_upper,C_middle,C_last)
-        
-        #preparing the RHS values
-        rhs_upper = c(1,rep(0,number_of_units-1))
-        rhs_middle = rep(epsilon,d)
-        rhs_last = 0
-        rhs_total = c(rhs_upper, rhs_middle,rhs_last)
-        ## changed rhs name to rhs_total
-        #print(cbind(A,C,rhs))
-        
-        #changed rhs name to rhs_total
-        t = lp(direction = "min", objective.in = OF , const.mat = A , const.dir = C , const.rhs = rhs_total)
-        #CEM_weights_of_unit = t$solution
-        #just made the above line inactive, why not returning the solutions directly? 
-        return(t$solution)
-}
-
-CEM_agg = function(input_mat, output_mat) {
-        #this function returns the benevolent CEM 
-        
-        number_of_units = nrow(input_mat)
-        number_of_inputs = ncol(input_mat)
-        number_of_outputs = ncol(output_mat)
-        d = number_of_inputs+number_of_outputs
-        
-        CEM_opt_weights = matrix(nrow = number_of_units, ncol = d )
-        
-        for (unit in 1:number_of_units) {
-                CEM_opt_weights[unit,] = CEM_unit_agg(input_mat , output_mat , unit , epsilon = 0)
-        }
-        #print(CEM_opt_weights)
-        CEM = matrix (nrow = number_of_units, ncol = number_of_units)
-        
-        
-        
-        for (row in 1:number_of_units){
-                if ( sum(CEM_opt_weights[row,])==0 ) { 
-                        temporary =dea(X = input_mat, Y = output_mat , RTS = "crs" , DUAL = TRUE)
-                        
-                        CEM_opt_weights[row,] = c(temporary$vy[row,] , temporary$ux[row,])
-                }
-        }
-        
-        
-        for (row in 1:number_of_units){
-                U = CEM_opt_weights[row,1:number_of_outputs]
-                V = CEM_opt_weights[row,(number_of_outputs+1):d]
-                #print(U)
-                #print(V)
-                #print("----")
-                
-                for (col in 1:number_of_units){
-                        CEM[row,col] = sum(U*output_mat[col,])/sum(V*input_mat[col,])
-                }
-                
-        }
-        
-        return(CEM)
-        
-}
-
 crs_eff <- function(dataset, num_of_inputs, orientation = "in" ){
         inputs <- dataset[,1:num_of_inputs]
         outputs <- dataset[,(num_of_inputs+1):ncol(dataset)]
@@ -232,41 +150,7 @@ vrs_eff <- function(dataset, num_of_inputs, orientation = "in"){
 
 #####
 # Multiplot from http://www.cookbook-r.com/Graphs/Multiple_graphs_on_one_page_(ggplot2)/
-multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
-        library(grid)
-        
-        # Make a list from the ... arguments and plotlist
-        plots <- c(list(...), plotlist)
-        
-        numPlots = length(plots)
-        
-        # If layout is NULL, then use 'cols' to determine layout
-        if (is.null(layout)) {
-                # Make the panel
-                # ncol: Number of columns of plots
-                # nrow: Number of rows needed, calculated from # of cols
-                layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
-                                 ncol = cols, nrow = ceiling(numPlots/cols))
-        }
-        
-        if (numPlots==1) {
-                print(plots[[1]])
-                
-        } else {
-                # Set up the page
-                grid.newpage()
-                pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
-                
-                # Make each plot, in the correct location
-                for (i in 1:numPlots) {
-                        # Get the i,j matrix positions of the regions that contain this subplot
-                        matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
-                        
-                        print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
-                                                        layout.pos.col = matchidx$col))
-                }
-        }
-}
+
 
 
 # Shiny Main Body
@@ -395,7 +279,8 @@ shinyServer(function(input, output) {
         
         # CEM MDU        
         #####
-        A_mat = function(unit, dataset) {
+        #----- CEM computation functions
+        A_mat = function(unit, dataset, number_of_inputs) {
                 #this function returns A matrix - matrix of constraints - for DMUunit formulation. 
                 # unit can be a number from 1 to nrow(input_mat)
                 # This function can be developed in a way that it returns all A matrices for
@@ -403,52 +288,23 @@ shinyServer(function(input, output) {
                 # pre-mature optimization is the root of all devils. 
                 
                 number_of_units = nrow(dataset)
-                number_of_inputs = input$num_of_inputs
-                number_of_outputs = ncol(dataset)- input$num_of_inputs
+                number_of_inputs = number_of_inputs
+                number_of_outputs = ncol(dataset)- number_of_inputs
                 number_of_variables = number_of_inputs+number_of_outputs
-                #input_mat <- dataset[,1:number_of_inputs]
-                #output_mat <- dataset[,(number_of_inputs+1):number_of_variables]
                 
-                #input_mat = as.matrix(input_mat)
-                #output_mat = as.matrix(output_mat)
-                
-                #number_of_inputs = ncol(input_mat)
-                #number_of_outputs = ncol(output_mat)
-                #number_of_units = nrow(input_mat)
-                
-                #assuming that the nrow() of input_mat and output_mat are equal 
                 
                 A = matrix(nrow = number_of_units, ncol= number_of_variables)
                 
-                #print("-----")
-                #print("A matrix before being filled")
-                #print(A)
-                #print("-----")
+                
                 
                 #first constraint is always the numerator constraint
                 A[1,]= unlist(c(rep(0,number_of_outputs),dataset[unit,1:number_of_inputs]))
                 ##print(dim(A))
-                ##input_mat = input_mat[-unit, ]
-                ##output_mat = output_mat[-unit, ]
+                
                 
                 input_mat_without_unit <- as.matrix(dataset[-unit,1:number_of_inputs])
                 output_mat_without_unit <- as.matrix(dataset[-unit,(number_of_inputs+1):number_of_variables])
                 
-                #print("-----")
-                #print("input_mat_without_unit")
-                #print(dim(input_mat_without_unit))
-                #print("output_mat_without_unit")
-                #print(dim(output_mat_without_unit))
-                #print("classes")
-                #print(class(input_mat_without_unit))
-                #print(class(output_mat_without_unit))
-                #print("what goes to be the first line of A")
-                #print(unlist(c(rep(0,number_of_outputs),dataset[unit,1:number_of_inputs])))
-                #print("First line of A")
-                #print(A[1,])
-                #print("lengh of the first line")
-                #print(length(A[1,]))
-                #print("-----")
                 
                 d = number_of_units-1
                 
@@ -456,306 +312,43 @@ shinyServer(function(input, output) {
                 for (i in 1:d) { 
                         ##print(i)
                         A[(i+1), ]=c(output_mat_without_unit[i,],-1*input_mat_without_unit[i,])
-                        #----
-                        #print("-----")
-                        #print("Inside of A matrix loop")
-                        #print("i")
-                        #print(i)
-                        #print("-----")
                         
-                        #A[(i+1), ]=c(dataset[i,((number_of_inputs+1):number_of_variables)],-1*dataset[i,(1:number_of_inputs)])
-                }
+                } 
+                
                 
                 A
                 
-        } #--- End of A_mat()
+        } 
         
-        CEM_unit = function(dataset , unit , epsilon = 0.00001){
-                #this function must return the the benevolent optimum weights for the given unit 
+        dea_4cem = function(dataset, number_of_inputs, epsilon = 0.000001) {
+                # returns a list , the first element is the efficiency of the DMUs (CRS)
+                # and the second element is the matrix of the optimum weights 
                 
-                #requires Benchmarking library
-                #requires lpSolve library
+                # because of using lp() without lpSolveAPI, the lower bound is ignored in some cases
+                # so better to round the results in 4 digits or so, then there would be no negative value 
                 
-                #require(Benchmarking)
-                #require(lpSolve)
-                
-                number_of_units = nrow(dataset)
-                number_of_inputs = input$num_of_inputs
-                number_of_outputs = ncol(dataset)- input$num_of_inputs
-                number_of_variables = number_of_inputs+number_of_outputs
-                
-                #print("-----")
-                #print("debug inside CEM_unit()")
-                #print("-----")
-                #print("number_of_units")
-                #print(number_of_units)
-                #print("-----")
-                #print("number_of_inputs")
-                #print(number_of_inputs)
-                #print("-----")
-                #print("number_of_outputs")
-                #print(number_of_outputs)
-                #print("-----")
-                #print("number_of_variables")
-                #print(number_of_variables)
-                #print("-----")
-                #print("dataset head")
-                #print(head(dataset))
-                #print("-----")
-                
-                
-                #input_mat <- dataset[,1:number_of_inputs]
-                #output_mat <- dataset[,(number_of_inputs+1):number_of_variables]
-                
-                #number_of_units = nrow(input_mat)
-                #input_mat = as.matrix(input_mat)
-                #output_mat = as.matrix(output_mat)
-                #number_of_inputs = ncol(input_mat)
-                #number_of_outputs = ncol(output_mat)
-                
-                
-                #we need the simple efficiency of the given unit 
-                #require(Benchmarking)
-                #library(Benchmarking)
-                
-                # 7 October - In order to test the new function dea_4cem instead of dea() 
-                #simple_eff = dea(X = input_mat , Y = output_mat , RTS = "crs", ORIENTATION = "in")
-                #unit_simple_eff = simple_eff$eff[unit]
-                
-                #----needs debugging dea_4cem()
-                eff_weight_mat = dea_4cem(dataset = dataset)
-                
-                #print("-----")
-                #print("eff_weight_mat dim")
-                #print(dim(eff_weight_mat))
-                #print("-----")
-                
-                simple_eff = eff_weight_mat[,1]
-                unit_simple_eff = simple_eff[unit]
-                
-                #print("-----")
-                #print("unit_simple_eff")
-                #print(unit_simple_eff)
-                #print("-----")
-                
-                output_mat_refined<- as.matrix(dataset[-unit,(number_of_inputs+1):number_of_variables])
-                #output_mat_refined = output_mat[-unit,]
-                
-                #print("-----")
-                #print("output_mat_refined dim")
-                #print(dim(output_mat_refined))
-                #print("-----")
-                #print("head of output_mat_refined")
-                #print(head(output_mat_refined))
-                #print("-----")
-                #print("modified dataset dim")
-                #print(dim(dataset[-unit,(number_of_inputs+1):number_of_variables]))
-                #print("-----")
-                #print("head of modified dataset")
-                #print(head(dataset[-unit,(number_of_inputs+1):number_of_variables]))
-                #print("-----")
-                
-                OF = apply(output_mat_refined,2,sum)
-                OF = c(OF,rep(0,number_of_inputs))
-                
-                #--- debug
-                #print("output_mat_refined")
-                #print(output_mat_refined)
-                #print("-----")
-                #print("output_mat_refined type")
-                #print(class(output_mat_refined))
-                #print("-----")
-                #print("OF")
-                #print(OF)
-                #print("-----")
-                #print("OF class")
-                #print(class(OF))
-                #print("-----")
-                #print("length of OF")
-                #print(length(OF))
-                #print("-----")
-                
-                
-                #d = number_of_inputs + number_of_outputs
-                
-                #preparing the A matrix
-                A_middle = diag(number_of_variables)
-                
-                #print("-----")
-                #print("A_middle dim")
-                #print(dim(A_middle))
-                #print("-----")
-                
-                #---- needs debugging A_mat()
-                A_upper=A_mat(unit=unit, dataset=dataset)
-                
-                #----- debug
-                
-                #print("-----")
-                #print("A_upper dim: Important for A_mat()")
-                #print(A_upper)
-                #print("-----")
-                #print("suspicious case of c() to fill A_last")
-                #print(class(c(dataset[unit,(number_of_inputs+1):number_of_variables],-1*unit_simple_eff*dataset[unit,1:number_of_inputs])))
-                #print("-----")
-                
-                A_last = unlist(c(dataset[unit,(number_of_inputs+1):number_of_variables],-1*unit_simple_eff*dataset[unit,1:number_of_inputs]))
-                
-                
-                A = rbind(A_upper,A_middle,A_last)
-                
-                #print("-----")
-                #print("A_last")
-                #print(A_last)
-                #print("dim of final A")
-                #print(dim(A))
-                #print("-----")
-                
-                #two new lines
-                ##input_mat_refined = matrix(dataset[-unit,1:number_of_inputs])
-                ##A[1,] = c(rep(0,number_of_outputs),apply(input_mat_refined,2,sum))
-                
-                #preparing the constraint directions
-                C_upper = c("==",rep("<=",number_of_units-1))
-                C_middle = rep(">=",number_of_variables)
-                C_last = "=="
-                C = c(C_upper,C_middle,C_last)
-                
-                #preparing the RHS values
-                rhs_upper = c(1,rep(0,number_of_units-1))
-                rhs_middle = rep(epsilon,number_of_variables)
-                rhs_last = 0
-                rhs_total = c(rhs_upper, rhs_middle,rhs_last)
-                ## changed rhs name to rhs_total
-                ##print(cbind(A,C,rhs))
-                
-                #changed rhs name to rhs_total
-                t = lp(direction = "max", objective.in = OF , const.mat = A , const.dir = C , const.rhs = rhs_total)
-                #CEM_weights_of_unit = t$solution
-                #just made the above line inactive, why not returning the solutions directly? 
-                t$solution
-        }
-        
-        CEM = function(dataset) {
-                #this function returns the benevolent CEM 
-                
-                #require(lpSolve)
-                #input_mat <- dataset[,1:number_of_inputs]
-                #output_mat <- dataset[,(number_of_inputs+1):number_of_variables]
-                number_of_units = nrow(dataset)
-                number_of_inputs = input$num_of_inputs
-                number_of_outputs = ncol(dataset)- input$num_of_inputs
-                
-                
-                number_of_variables = number_of_inputs+number_of_outputs
-                
-                
-                
-                CEM_opt_weights = matrix(nrow = number_of_units, ncol = number_of_variables )
-                
-                #print("-----")
-                #print("number_of_units")
-                #print(number_of_units)
-                #print("-----")
-                #print("number of inputs")
-                #print(number_of_inputs)
-                #print("-----")
-                #print("number of outputs")
-                #print(number_of_outputs)
-                #print("-----")
-                #print("number of variables")
-                #print(number_of_variables)
-                #print("-----")
-                #print("CEM_opt_weights dim")
-                #print(dim(CEM_opt_weights))
-                #print("-----")
-                
-                #---attention needed for CEM_unit
-                for (unit in 1:number_of_units) {
-                        #print("unit in the CEM_opt_weights loop")
-                        #print(unit)
-                        CEM_opt_weights[unit,] = CEM_unit(dataset , unit , epsilon = 0)
-                }
-                
-                #-----
-                #print("-----")
-                #print("CEM_opt_weights")
-                #print(CEM_opt_weights)
-                #print("-----")
-                #-----
-                
-                ##print(CEM_opt_weights)
-                CEM = matrix (nrow = number_of_units, ncol = number_of_units)
-                
-                #In the 35 Chinesse Cities dataset, CEM_unit() could not find feasible solution for 
-                #the unit 4. In other words, the benevolent formulation of the unit4 was not feasible!
-                #why? I don't know now (3-oct-2016). As the result, the dea() function returns infeasible 
-                #solution with ZERO as all weights. So here if I detect ALL ZERO, I replace it with the optimum weights 
-                #that dea() function returns for the problematic unit. These weights - which may not be very benevolent
-                #will be used in generation of cross-efficiency matrix. 
-                
-                #----dea_4cem needs debugging 
-                eff_weight_mat = dea_4cem(dataset) 
-                for (row in 1:number_of_units){
-                        if ( sum(CEM_opt_weights[row,])==0 ) { 
-                                
-                                #temporary =dea(X = input_mat, Y = output_mat , RTS = "crs" , DUAL = TRUE, ORIENTATION = "in")
-                                # Orientation has been added on 7 october, trying to resolve the bug of colombian hospitals
-                                #CEM_opt_weights[row,] = c(temporary$vy[row,] , temporary$ux[row,])
-                                CEM_opt_weights[row,] = eff_weight_mat[row,-1]
-                        }
-                }
-                
-                
-                for (row in 1:number_of_units){
-                        w_outputs = CEM_opt_weights[row,1:number_of_outputs]
-                        w_inputs = CEM_opt_weights[row,(number_of_outputs+1):number_of_variables]
-                        ##print(U)
-                        ##print(V)
-                        ##print("----")
-                        
-                        ## This can be heavily optimized with matrix operations rather than scalar
-                        CEM[row,] = apply(X = t(t(dataset[,(number_of_inputs+1):number_of_variables]) * CEM_opt_weights[row,1:number_of_outputs]), MARGIN = 1 , FUN = sum ) / apply(X = t(t(dataset[,1:number_of_inputs]) * CEM_opt_weights[row,(number_of_outputs+1):number_of_variables]), MARGIN = 1 , FUN = sum )
-                        
-                        #for (col in 1:number_of_units){
-                        #        CEM[row,col] = sum(w_outputs*output_mat[col,])/sum(w_inputs*input_mat[col,])
-                        #        #CEM[row,col] = sum(round(U*output_mat[col,],4))/sum(round(V*input_mat[col,],4))
-                        #}
-                        
-                }
-                
-                CEM
-                
-        }
-        
-        dea_4cem = function(dataset) {
                 # this function is supposed to replace dea() of Benchmarking
-                # This function supposed to give back the optimum [ or a optimum set of] weights
+                # This function supposed to give back the optimum [ or one optimum set of] weights
                 
                 # since dea() is giving bulshit results for Colombian hospital case
                 # indeed, the summation of the VIs is not equal to one! 
                 # so it means the formulation that dea() is using is not the one that I need
                 
-                #input_mat <- dataset[,1:number_of_inputs]
-                #output_mat <- dataset[,(number_of_inputs+1):number_of_variables]
                 number_of_units = nrow(dataset)
-                number_of_inputs = input$num_of_inputs
-                number_of_outputs = ncol(dataset)- input$num_of_inputs
+                number_of_inputs = number_of_inputs
+                number_of_outputs = ncol(dataset)- number_of_inputs
                 number_of_variables = number_of_inputs+number_of_outputs
                 
-                #number_of_inputs = ncol(input_mat)
-                #number_of_outputs = ncol(output_mat)
-                #assuming that input_mat and output_mat have the same number of rows!
-                #number_of_units = nrow(input_mat)
-                #d = number_of_inputs + number_of_outputs
                 
                 eff_weight_mat = matrix(nrow = number_of_units, ncol = (number_of_variables+1))
                 
-                #A_epsilon=(diag(d))
+                lprec_eff_scores <- vector(length = number_of_units)
+                lprec_opt_weights <- matrix(nrow = number_of_units, ncol = number_of_variables)
                 
                 for (unit in 1:number_of_units){
                         
-                        OF = unlist(c(as.vector(dataset[unit,(number_of_inputs+1):number_of_variables]),rep(0,number_of_inputs)))
+                        OF = unlist(c(as.vector(dataset[unit,(number_of_inputs+1):number_of_variables]),
+                                      rep(0,number_of_inputs)))
                         
                         A_upper = unlist(c(rep(0,number_of_outputs),dataset[unit,1:number_of_inputs]))
                         A_middle = cbind(dataset[-unit,(number_of_inputs+1):number_of_variables],-dataset[-unit,1:number_of_inputs])
@@ -763,29 +356,287 @@ shinyServer(function(input, output) {
                         A_upper = unname(A_upper)
                         A_middle = unname(A_middle)
                         A_bottom = unname(A_bottom)
-                        #A_epsilon= unname(A_epsilon)
-                        #colnames(A_epsilon) = colnames(A_upper)
-                        A = as.matrix(rbind(A_upper, A_middle, A_bottom))
-                        #A = rbind(A, A_epsilon)
                         
-                        #const_directions = c("==",rep("<=",(number_of_units)),rep(">=",d))
+                        A = as.matrix(rbind(A_upper, A_middle, A_bottom))
+                        
                         const_directions = c("==",rep("<=",(number_of_units)))
-                        # epsilon = 0.0000001
-                        #RHS_values = c(1,rep(0,(number_of_units-1)),1,rep(0.0000001,d))
+                        
                         RHS_values = c(1,rep(0,(number_of_units-1)),1)
                         
-                        lp_model=lp(direction = "max", objective.in = OF , const.mat = A , const.dir = const_directions, const.rhs = RHS_values)
+                        lp_model=lp(direction = "max", 
+                                    objective.in = OF ,
+                                    const.mat = A ,
+                                    const.dir = const_directions,
+                                    const.rhs = RHS_values)
                         
                         eff_weight_mat[unit,] = c(lp_model$objval,lp_model$solution)
                         
+                        #----- new implementation
+                        
+                        #OF
+                        OF <- dataset[unit,]
+                        
+                        
+                        lprec <- make.lp(nrow = 0 , ncol = number_of_variables )
+                        set.objfn(lprec, OF)
+                        lprec_const_directions <- gsub(x = const_directions, pattern = "==", replacement = "=")
+                        for (constraint_no in 1:nrow(A)) {
+                                add.constraint(lprec, A[constraint_no,], lprec_const_directions[constraint_no], RHS_values[constraint_no])
+                        }
+                        set.bounds(lprec, lower = rep(x = epsilon, number_of_variables))
+                        ColNames <- c(colnames(dataset)[(number_of_inputs+1):number_of_variables],colnames(dataset)[1:number_of_inputs])
+                        dimnames(lprec) <- list(1:nrow(A), ColNames)
+                        
+                        #lprec
+                        lp.control(lprec,sense='max')
+                        solve(lprec)
+                        lprec_eff_scores[unit] <- get.objective(lprec)
+                        lprec_opt_weights[unit, ] <- get.variables(lprec)               
                         
                         
                 }
+                eff_scores <-   eff_weight_mat[,1]
+                weight_mat <- eff_weight_mat[,-1]
                 
-                eff_weight_mat
+                Input_weights_colnames <- paste0(colnames(dataset)[1:number_of_inputs]," Weight")
+                Output_weights_colnames <- 
+                        paste0(colnames(dataset)[(number_of_inputs+1):number_of_variables]," Weight")
+                
+                colnames(weight_mat) <- c(Output_weights_colnames,Input_weights_colnames)
+                
+                #eff_weight_list = list(eff_scores, weight_mat)
+                eff_weight_list = list(eff_scores, weight_mat, lprec_eff_scores, lprec_opt_weights)
+                
+                return(eff_weight_list)
                 
                 
                 
+        }
+        
+        #returns the benevolent optimum weights of a given unit      
+        CEM_unit = function(dataset , unit , epsilon = 0.000001, number_of_inputs ){
+                #this function must return the the benevolent optimum weights for the given unit 
+                # because of using lp() without lpSolveAPI, the lower bound is ignored in some cases
+                # so better to round the results in 4 digits or so, then there would be no negative value 
+                
+                set.seed(7)
+                
+                number_of_units = nrow(dataset)
+                number_of_inputs = number_of_inputs
+                number_of_outputs = ncol(dataset)- number_of_inputs
+                
+                number_of_variables = ncol(dataset)
+                
+                
+                eff_weight_list <- dea_4cem(dataset = dataset, number_of_inputs = number_of_inputs)
+                eff_weight_mat <- eff_weight_list[[2]]
+                simple_eff <- eff_weight_list[[1]]
+                
+                
+                #simple_eff = eff_weight_mat[,1]
+                unit_simple_eff = simple_eff[unit]
+                
+                
+                
+                output_mat_refined<- as.matrix(dataset[-unit,(number_of_inputs+1):number_of_variables])
+                #output_mat_refined = output_mat[-unit,]
+                
+                
+                OF = apply(output_mat_refined,2,sum)
+                OF = c(OF,rep(0,number_of_inputs))
+                
+                
+                #preparing the A matrix
+                A_middle = diag(number_of_variables)
+                
+                
+                #---- needs debugging A_mat()
+                A_upper=A_mat(unit=unit, dataset=dataset, number_of_inputs = number_of_inputs)
+                
+                A_last = unlist(c(dataset[unit,(number_of_inputs+1):number_of_variables],
+                                  -1*unit_simple_eff*dataset[unit,1:number_of_inputs]))
+                
+                
+                A = rbind(A_upper,A_middle,A_last)
+                
+                #two new lines
+                
+                #preparing the constraint directions
+                C_upper = c("==",rep("<=",number_of_units-1))
+                C_middle = rep(">=",number_of_variables)
+                C_last = "=="
+                C = c(C_upper,C_middle,C_last)
+                
+                #print(C)
+                
+                #preparing the RHS values
+                rhs_upper = c(1,rep(0,number_of_units-1))
+                rhs_middle = rep(0,number_of_variables)
+                rhs_last = 0
+                rhs_total = c(rhs_upper, rhs_middle,rhs_last)
+                
+                #print(rhs_total)
+                
+                t = lp(direction = "max", objective.in = OF , const.mat = A , const.dir = C , const.rhs = rhs_total)
+                
+                #print(t$solution>=0)
+                print("CEM_unit output, ben opt weights")
+                print(t$solution)
+                return(t$solution)
+        }
+        
+        
+        # benevolent cross-efficiency matrix generator function 
+        CEM = function(dataset, number_of_inputs) {
+                #this function returns the benevolent CEM 
+                
+                
+                number_of_units = nrow(dataset)
+                number_of_inputs = number_of_inputs
+                number_of_outputs = ncol(dataset)- number_of_inputs
+                
+                
+                number_of_variables = number_of_inputs+number_of_outputs
+                
+                eff_weight_list <- dea_4cem(dataset = dataset, number_of_inputs = number_of_inputs)
+                eff_weight_mat <- eff_weight_list[[4]]
+                
+                CEM_opt_weights = matrix(nrow = number_of_units, ncol = number_of_variables )
+                
+                
+                for (unit in 1:number_of_units) {
+                        
+                        CEM_opt_weights[unit,] = CEM_unit(dataset , unit , epsilon = 0.00001, number_of_inputs = number_of_inputs)
+                        
+                        
+                        
+                        if ( sum(CEM_opt_weights[unit,]) == 0 ) { 
+                                print("------")
+                                
+                                print(CEM_opt_weights[unit,])
+                                print("replaced with")
+                                #print(sum(CEM_opt_weights[unit,]))
+                                CEM_opt_weights[unit,] <- eff_weight_mat[unit,]
+                                print(eff_weight_mat[unit,])
+                        }
+                }
+                
+                
+                
+                CEM = matrix (nrow = number_of_units, ncol = number_of_units)
+                
+                
+                #deactive in order to resolve zero weight bug 
+                
+                #for (row in 1:number_of_units){
+                #        if ( sum(CEM_opt_weights[row,]) == 0 ) { 
+                #                
+                #                CEM_opt_weights[row,] <- eff_weight_mat[row,]
+                #        }
+                #}
+                
+                # can be integrated in the above loop!  
+                for (row in 1:number_of_units){
+                        w_outputs = CEM_opt_weights[row,1:number_of_outputs]
+                        w_inputs = CEM_opt_weights[row,(number_of_outputs+1):number_of_variables]
+                        
+                        ## This can be heavily optimized with matrix operations rather than scalar
+                        CEM[row,] = apply(X = t(t(dataset[,(number_of_inputs+1):number_of_variables]) * CEM_opt_weights[row,1:number_of_outputs]), MARGIN = 1 , FUN = sum ) / apply(X = t(t(dataset[,1:number_of_inputs]) * CEM_opt_weights[row,(number_of_outputs+1):number_of_variables]), MARGIN = 1 , FUN = sum )
+                        
+                }
+                
+                return(CEM)
+                
+        }
+        
+        ben_weights <- function(dataset, number_of_inputs) {
+                
+                #this function is supposed to return the benevolent optimum weights 
+                #first the outputs, then the inputs         
+                number_of_units = nrow(dataset)
+                
+                number_of_outputs = ncol(dataset)-number_of_inputs
+                number_of_factors = ncol(dataset)
+                
+                eff_weight_list <- dea_4cem(dataset = dataset, number_of_inputs = number_of_inputs)
+                eff_weight_mat <- eff_weight_list[[4]]
+                
+                CEM_opt_weights = matrix(nrow = number_of_units, ncol = number_of_factors )
+                
+                
+                # max normalization for getting reasonable weights scale 
+                # it is possible to use other normalizations 
+                dataset <- apply(X = dataset, MARGIN = 2 , FUN = function(x) x/max(x))
+                
+                for (unit in 1:number_of_units) {
+                        CEM_opt_weights[unit,] = CEM_unit(dataset , unit , epsilon = 0.00001, number_of_inputs = number_of_inputs)
+                        
+                        if (sum(CEM_opt_weights[unit,]) == 0 ) {
+                                CEM_opt_weights[unit,] <- eff_weight_mat[unit,]
+                                print("warning! zero weight vector detected")
+                                print("replaced with:")
+                                print(CEM_opt_weights[unit,])
+                        }
+                }
+                
+                
+                factor_labels = vector(length = number_of_factors)
+                factor_labels = c(colnames(dataset[,(number_of_inputs+1):number_of_factors]),
+                                  colnames(dataset[,1:number_of_inputs]))
+                
+                factor_labels <- paste(factor_labels,"Weight",sep = " ")
+                
+                row_labels <- paste0("DMU",1:number_of_units)
+                
+                CEM_opt_weights = as.data.frame(CEM_opt_weights)
+                colnames(CEM_opt_weights) = factor_labels
+                row.names(CEM_opt_weights) = row_labels 
+                
+                
+                
+                
+                
+                return(round(CEM_opt_weights,5))  
+        }
+        
+        weight_standardization <- function(weight_dataset , number_of_inputs){
+                
+                number_of_variables <- ncol(weight_dataset)
+                number_of_outputs <- number_of_variables - number_of_inputs
+                
+                #output weights standardization
+                if (number_of_outputs != 1 ) {
+                        output_standardization_factor <-
+                                apply(X = weight_dataset[,1:number_of_outputs] , MARGIN = 1 , FUN = sum )
+                        standardized_outputs <- weight_dataset[,1:number_of_outputs]/output_standardization_factor
+                        
+                        
+                } else {
+                        
+                        standardized_outputs <- weight_dataset[,1:number_of_outputs]/weight_dataset[,1:number_of_outputs]
+                        standardized_outputs <- as.matrix(standardized_outputs)
+                        colnames(standardized_outputs) <- colnames(weight_dataset)[,1:number_of_outputs]
+                }
+                
+                #input weights standardization
+                if (number_of_inputs != 1){
+                        input_standardization_factor <-
+                                apply(X = weight_dataset[,(number_of_outputs+1):number_of_variables] 
+                                      , MARGIN = 1 , FUN = sum )
+                        standardized_inputs <-
+                                weight_dataset[,(number_of_outputs+1):number_of_variables]/input_standardization_factor
+                } else {
+                        standardized_inputs <-
+                                weight_dataset[,(number_of_outputs+1):number_of_variables]/
+                                weight_dataset[,(number_of_outputs+1):number_of_variables]
+                        
+                        standardized_inputs <- as.matrix(standardized_inputs)
+                        colnames(standardized_inputs) <- colnames(weight_dataset)[,(number_of_outputs+1):number_of_variables]
+                }
+                
+                standardized_weights_list <- list(round(standardized_inputs,5),round(standardized_outputs,5))
+                
+                return(standardized_weights_list)
         }
         
         #----- End of CEM requisit functions 
@@ -797,7 +648,7 @@ shinyServer(function(input, output) {
                 t<- final_dataset_reactive()
                 
                 switch(EXPR = input$cem_approach ,
-                       "Benevolent" = CEM(dataset = t) , 
+                       "Benevolent" = CEM(dataset = t, number_of_inputs = input$num_of_inputs) , 
                        #"Aggressive" = CEM_agg(input_mat = as.matrix(t[,1:number_of_inputs]) ,output_mat = as.matrix(t[,(number_of_inputs+1):ncol(t)] )) )
                        "Aggressive" = NULL )
                 #CEM(input_mat = as.matrix(t[,1:number_of_inputs]) ,output_mat = as.matrix(t[,(number_of_inputs+1):ncol(t)] )) 
@@ -808,7 +659,7 @@ shinyServer(function(input, output) {
         #CEM MDU plot
         cem_unfolding <- reactive({
                 t <- cem_reactive()
-                
+                t <- round(t,4)
                 unfolding(delta = round((1-t),2),ndim = 2)
         })
         
@@ -820,20 +671,11 @@ shinyServer(function(input, output) {
                 row_df <- data.frame(t$conf.row, "DMU" = c(1:nrow(t$conf.row)), Type = "Rating", Shape = 19) 
                 col_df <- data.frame(t$conf.col, "DMU" = c(1:nrow(t$conf.col)), Type = "Rated", Shape = 24) 
                 
-                #print("----")
-                #print("rbind output")
-                #print(head(rbind(row_df,col_df)))
-                #print("rbind class")
-                #print(class(rbind(row_df,col_df)))
-                #print("----")
                 
                 unfolded_df  <- rbind(row_df,col_df)
                 unfolded_df$alpha = NA
                 unfolded_df$point_size = NA
                 
-                #print("-----")
-                #print(head(unfolded_df))
-                #print("------")
                 
                 unfolded_df$alpha[unfolded_df$Type == "Rating"] <-  input$cem_row_transparency
                 unfolded_df$alpha[unfolded_df$Type == "Rated"] <-  input$cem_col_transparency
@@ -841,22 +683,10 @@ shinyServer(function(input, output) {
                 unfolded_df$point_size[unfolded_df$Type == "Rating"] <- input$cem_row_point_size
                 unfolded_df$point_size[unfolded_df$Type == "Rated"] <- input$cem_col_point_size
                 
-                #unfolded_df <-unfolded_df %>% filter(Type == "Rating") %>% mutate(alpha = input$cem_row_transparency, point_size = input$cem_row_point_size)
-                #unfolded_df <-unfolded_df %>% filter(Type == "Rated") %>% mutate(alpha = input$cem_col_transparency, point_size = input$cem_col_point_size)
-                
-                #print("-----")
-                #print(head(unfolded_df))
-                #print("------")
                 
                 total_min <-  min(unfolded_df$D1,unfolded_df$D2)
                 total_max <- max( unfolded_df$D1,unfolded_df$D2)
                 
-                #x_min <- min(min(col_df$D1),min(row_df$D1))
-                #x_max <- max(max(col_df$D1),max(row_df$D1))
-                #y_min <- min(min(col_df$D2),min(row_df$D2))
-                #y_max <- max(max(col_df$D2),max(row_df$D2))
-                #x_range <- x_max - x_min
-                #y_range <- y_max - y_min
                 
                 g<- ggplot(data = unfolded_df) + 
                         geom_point(aes(x = D1 , y = D2 , 
@@ -944,10 +774,227 @@ shinyServer(function(input, output) {
                 }
         ) 
         
+        output$cem_brush_info <- DT::renderDataTable({
+                
+                #cem_for_brush <- CEM(dataset = final_dataset_reactive())  
+                cem_for_brush <- cem_reactive()
+                avg_cross_eff <- round(apply(cem_for_brush,MARGIN = 2, FUN = mean),3)
+                simple_efficiency <- round(diag(cem_for_brush),3)
+                
+                t <- cem_unfolding()
+                row_df <- data.frame(t$conf.row, "DMU" = c(1:nrow(t$conf.row)), Type = "Rating", `Average Cross-Efficiency` = avg_cross_eff , `Simple Efficiency` = simple_efficiency  ) 
+                col_df <- data.frame(t$conf.col, "DMU" = c(1:nrow(t$conf.col)), Type = "Rated", `Average Cross-Efficiency` = avg_cross_eff , `Simple Efficiency` = simple_efficiency ) 
+                unfolded_df  <- rbind(row_df,col_df)
+                
+                res <- brushedPoints(unfolded_df, input$cem_brush)
+                datatable(res)
+                
+        })
+        
+        
+        
+        input_weights_dotplot_dataset <- eventReactive(input$cem_mdu_button,{
+                dataset <- final_dataset_reactive()
+                number_of_inputs <- input$num_of_inputs
+                
+                t<- ben_weights(dataset, number_of_inputs)
+                t<- weight_standardization(weight_dataset = t , number_of_inputs = number_of_inputs)[[1]]
+                
+                return(t)
+        })
+        
+        output_weights_dotplot_dataset <- eventReactive(input$cem_mdu_button,{
+                dataset <- final_dataset_reactive()
+                number_of_inputs <- input$num_of_inputs
+                
+                t<- ben_weights(dataset, number_of_inputs)
+                t<- weight_standardization(weight_dataset = t , number_of_inputs = number_of_inputs)[[2]]
+                
+                return(t)
+        })
+        
+        output$cem_dotplot_dmu_selection_ui <- renderUI({
+                dataset <- final_dataset_reactive()
+                
+                selectInput(inputId = "cem_dotplot_dmu_selection",
+                            label = "Highlight a DMU in Dotplot Tab",
+                            choices = c("None",1:nrow(dataset))
+                )
+        })
+        
+        
+        
+        input_weight_plot_list_func <- reactive({
+                
+                dataset <- input_weights_dotplot_dataset()
+                
+                
+                
+                color <- rep("Others",nrow(dataset))
+                if (input$cem_dotplot_dmu_selection != "None") {color[as.numeric(input$cem_dotplot_dmu_selection)] <- "Selected"}
+                dataset$color <- as.factor(color)
+                
+                print("-----")
+                print("dmu selected for cem dotplots")
+                print(input$cem_dotplot_dmu_selection)
+                
+                #myColors <- brewer.pal(2,"Set1")
+                #names(myColors) <- levels(dataset$color)
+                
+                # for removing legend when there is no selected DMU
+                if (input$cem_dotplot_dmu_selection == "None" ) {
+                        all_plots <- lapply(X = 1:(ncol(dataset)-1), function(x) ggplot()+
+                                                    geom_dotplot(data = dataset, aes(x = dataset[,x],fill = color) , alpha = 0.6)+ 
+                                                    theme_linedraw()+
+                                                    xlab(colnames(dataset)[x]) +  
+                                                    scale_fill_manual(name = "DMUs", values =  c("Others"="blue" , "Selected"="orange")) +
+                                                    guides(fill = FALSE )
+                                            
+                        )
+                        
+                } else {
+                        all_plots <- lapply(X = 1:(ncol(dataset)-1), function(x) ggplot()+
+                                                    geom_dotplot(data = dataset, aes(x = dataset[,x],fill = color) , alpha = 0.6)+ 
+                                                    theme_linedraw()+
+                                                    xlab(colnames(dataset)[x]) +  
+                                                    scale_fill_manual(name = "DMUs", values =  c("Others"="blue" , "Selected"="orange")) 
+                                            
+                        )
+                        
+                }
+                
+                
+                
+                # or maybe for loop works with print() around the ggplot command
+                # or using a middle variable g, then taking out the ggplot part and put it in the list 
+                
+                
+                #select only the plots of chosen variables
+                #to_select <- c(1:ncol(dataset)) %in% selected_vars
+                #ptlist <- all_plots[to_select] 
+                
+                if (length(all_plots)==0) return(NULL)
+                
+                return(all_plots)
+                #grid.arrange(grobs=ptlist,ncol=2)
+                
+        })
+        
+        input_weights_plot_grid_func <- reactive({
+                ptlist <- input_weight_plot_list_func()
+                grid.arrange(grobs=ptlist,ncol=2)
+        })
+        
+        #dotplot_plot_eventReactive <- eventReactive(input$dotplot_button,{
+        #        dotplot_plot_func()
+        #})
+        
+        output$input_weights_dotplots <-  renderPlot({
+                #dotplot_plot_func()
+                input_weights_plot_grid_func()
+        })
+        
+        
+        output_weight_plot_list_func <- reactive({
+                
+                dataset <- output_weights_dotplot_dataset()
+                
+                
+                
+                color <- rep("Others",nrow(dataset))
+                if (input$cem_dotplot_dmu_selection != "None") {color[as.numeric(input$cem_dotplot_dmu_selection)] <- "Selected"}
+                dataset$color <- as.factor(color)
+                
+                
+                #myColors <- brewer.pal(2,"Set1")
+                #names(myColors) <- levels(dataset$color)
+                
+                # for removing legend when there is no selected DMU
+                if (input$cem_dotplot_dmu_selection == "None" ) {
+                        all_plots <- lapply(X = 1:(ncol(dataset)-1), function(x) ggplot()+
+                                                    geom_dotplot(data = dataset, aes(x = dataset[,x],fill = color) , alpha = 0.6)+ 
+                                                    theme_linedraw()+
+                                                    xlab(colnames(dataset)[x]) +  
+                                                    scale_fill_manual(name = "DMUs", values =  c("Others"="blue" , "Selected"="orange")) +
+                                                    guides(fill = FALSE )
+                                            
+                        )
+                        
+                } else {
+                        all_plots <- lapply(X = 1:(ncol(dataset)-1), function(x) ggplot()+
+                                                    geom_dotplot(data = dataset, aes(x = dataset[,x],fill = color) , alpha = 0.6)+ 
+                                                    theme_linedraw()+
+                                                    xlab(colnames(dataset)[x]) +  
+                                                    scale_fill_manual(name = "DMUs", values =  c("Others"="blue" , "Selected"="orange")) 
+                                            
+                        )
+                        
+                }
+                
+                
+                if (length(all_plots)==0) return(NULL)
+                
+                return(all_plots)
+                
+        })
+        
+        output_weights_plot_grid_func <- reactive({
+                ptlist <- output_weight_plot_list_func()
+                grid.arrange(grobs=ptlist,ncol=2)
+        })
+        
+        #dotplot_plot_eventReactive <- eventReactive(input$dotplot_button,{
+        #        dotplot_plot_func()
+        #})
+        
+        output$output_weights_dotplots <-  renderPlot({
+                output_weights_plot_grid_func()
+        })
+        
+        
+        
+        
+        
+        
+        
+        output$cem_weights_info <- DT::renderDataTable({
+                
+                dataset <- final_dataset_reactive()
+                number_of_inputs <- input$num_of_inputs
+                t<- ben_weights(dataset, number_of_inputs)
+                #head(dataset)
+                datatable(t)
+                
+        })
+        
+        output$cem_weights_std_info <- DT::renderDataTable({
+                dataset <- final_dataset_reactive()
+                number_of_inputs <- input$num_of_inputs
+                
+                t<- ben_weights(dataset, number_of_inputs)
+                t<- weight_standardization(weight_dataset = t , number_of_inputs = number_of_inputs) 
+                
+                datatable(cbind(t[[1]],t[[2]]))
+        })       
+        
+        output$all_data <- DT::renderDataTable({
+                
+                dataset <- final_dataset_reactive()
+                #number_of_inputs <- input$num_of_inputs
+                #t<- ben_weights(dataset, number_of_inputs)
+                #head(dataset)
+                datatable(dataset)
+                
+        })
         
         #End of CEM MDU
         
         #####     
+        
+        
+        
+        
+        
         
         
         # Porembski
@@ -1074,6 +1121,7 @@ shinyServer(function(input, output) {
         })
         
         
+        
         output$download_Porembski_graph <- downloadHandler(
                 filename = "Porembski_graph.png",
                 content = function(file) {
@@ -1086,6 +1134,14 @@ shinyServer(function(input, output) {
         
         output$Porembski_info <- renderTable({
                 head(porembski_points())
+        })
+        
+        output$Proembski_brush_info <- DT::renderDataTable({
+                points_df <- porembski_points()
+                
+                res <- brushedPoints(points_df, input$Porembski_brush)
+                datatable(res)
+                
         })
         
         #####
@@ -1109,7 +1165,7 @@ shinyServer(function(input, output) {
                 data.frame(coordinates,crs_efficiency, vrs_efficiency)
         })
         
-        ranges <- reactiveValues(x = NULL, y = NULL)
+        biplot_ranges <- reactiveValues(x = NULL, y = NULL)
         
         biplot_plot <- reactive({
                 x <- biplot_data()
@@ -1181,7 +1237,7 @@ shinyServer(function(input, output) {
                 
                 
                 g <- g  + 
-                        coord_cartesian(xlim = ranges$x, ylim = ranges$y, expand = TRUE)
+                        coord_cartesian(xlim = biplot_ranges$x, ylim = biplot_ranges$y, expand = TRUE)
                 
                 switch(EXPR = as.character(input$biplot_labels), 
                        "TRUE" = (g + geom_text_repel(data = z1, aes(x = PC1, y = PC2 , label = DMU), color = "blue") ),
@@ -1202,12 +1258,12 @@ shinyServer(function(input, output) {
         observeEvent(input$biplot_dblclick, {
                 brush <- input$biplot_brush
                 if (!is.null(brush)) {
-                        ranges$x <- c(brush$xmin, brush$xmax)
-                        ranges$y <- c(brush$ymin, brush$ymax)
+                        biplot_ranges$x <- c(brush$xmin, brush$xmax)
+                        biplot_ranges$y <- c(brush$ymin, brush$ymax)
                         
                 } else {
-                        ranges$x <- NULL
-                        ranges$y <- NULL
+                        biplot_ranges$x <- NULL
+                        biplot_ranges$y <- NULL
                 }
         })
         
@@ -1225,6 +1281,30 @@ shinyServer(function(input, output) {
                 head(biplot_supplement_data())
                 #biplot_data()
                 #
+        })
+        
+        output$biplot_brush_info <- DT::renderDataTable({
+                x <- biplot_data()
+                supp <- biplot_supplement_data()
+                data <- final_dataset_reactive()
+                z1 <- data.frame(DMU = 1:nrow(data),crs_eff=  round(supp$crs_efficiency,3), vrs_eff=  round(supp$vrs_efficiency,3), round(x$x[, 1:2],3))
+                #data$shape <- switch(EXPR = input$biplot_dea_model, 
+                #                     "CRS" = ifelse(test = supp$crs_efficiency ==1 , 1, 19),
+                #                     "VRS" = ifelse(test = supp$vrs_efficiency ==1 , 1, 19) )
+                
+                
+                
+                # we want crs_eff or vrs_eff , DMU id, maybe original data of the points as well
+                #z1 <- data.frame(DMU = 1:nrow(data), x$x[, 1:2], crs_color = NA , vrs_color = NA)
+                #z1$crs_color <- ifelse(test = supp$crs_efficiency ==1 , "Efficient", "Inefficient")
+                #print("crs shapes of biplot")
+                #print(z1$crs_shape)
+                #z1$vrs_color <- ifelse(test = supp$vrs_efficiency ==1 , "Efficient", "Inefficient")
+                #cat("input$biplot_brush:\n")
+                #str(input$biplot_brush)
+                res <- brushedPoints(z1, input$biplot_brush)
+                datatable(res)
+                
         })
         
         #####
@@ -1496,6 +1576,14 @@ shinyServer(function(input, output) {
                 #biplot_data()
                 #
         }) 
+        
+        output$Costa_brush_info <- DT::renderDataTable({
+                data <- Costa_df()
+                
+                res <- brushedPoints(data, input$Costa_brush)
+                datatable(res)
+                
+        })
         #####
         # MDS Plots 
         #####
@@ -1733,6 +1821,126 @@ shinyServer(function(input, output) {
                 #class(colnames(final_dataset_reactive()))
                 head(mds_data())
         })
+        
+        output$mds_brush_info <- DT::renderDataTable({
+                data <- final_dataset_to_visualize()[[2]]
+                index <- final_dataset_to_visualize()[[1]]
+                # it is possible to limit the variables in data by using index
+                
+                res <- brushedPoints(data, input$mds_brush)
+                datatable(res)
+                
+        })
         #####     
+        
+        # Dotplot Histograms of Variables 
+        
+        output$dotplot_dmu_selection_ui <- renderUI({
+                dataset <- final_dataset_reactive()
+                
+                selectInput(inputId = "dotplot_dmu_selection",
+                            label = "Highlight a DMU",
+                            choices = c("None",1:nrow(dataset))
+                )
+                
+        }) 
+        
+        output$dotplot_var_selection_ui <- renderUI({
+                dataset <- final_dataset_reactive()
+                dataset_colnames <- colnames(dataset)
+                
+                
+                #checkboxGroupInput(inputId = "dotplot_checkbox", label = "Select Variable(s)", choices = dataset_colnames, selected = NULL, inline = FALSE, width = NULL)
+                #checkboxInput(inputId = 'dotplot_var_1', label = dataset_colnames[1], FALSE)
+                checkboxGroupInput(inputId = "dotplot_checkbox",label = "Select Variable(s)",choiceNames = as.list(colnames(dataset)), choiceValues = as.list(seq(1,ncol(dataset))),selected = NULL )
+        })
+        
+        dotplot_dataset <- eventReactive(input$dotplot_button,{
+                
+                final_dataset_reactive()
+                
+        })
+        
+        
+        ptlist_func <- reactive({
+                
+                dataset <- dotplot_dataset()
+                selected_vars <- as.numeric(input$dotplot_checkbox)
+                
+                
+                color <- rep("Others",nrow(dataset))
+                if (input$dotplot_dmu_selection != "None") {color[as.numeric(input$dotplot_dmu_selection)] <- "Selected"}
+                dataset$color <- as.factor(color)
+                
+                
+                #myColors <- brewer.pal(2,"Set1")
+                #names(myColors) <- levels(dataset$color)
+                
+                # for removing legend when there is no selected DMU
+                if (input$dotplot_dmu_selection == "None" ) {
+                        all_plots <- lapply(X = 1:ncol(dataset), function(x) ggplot()+
+                                                    geom_dotplot(data = dataset, aes(x = dataset[,x],fill = color) , alpha = 0.6)+ 
+                                                    theme_linedraw()+
+                                                    xlab(colnames(dataset)[x]) +  
+                                                    scale_fill_manual(name = "DMUs", values =  c("Others"="blue" , "Selected"="orange")) +
+                                                    guides(fill = FALSE )
+                                            
+                        )
+                        
+                } else {
+                        all_plots <- lapply(X = 1:ncol(dataset), function(x) ggplot()+
+                                                    geom_dotplot(data = dataset, aes(x = dataset[,x],fill = color) , alpha = 0.6)+ 
+                                                    theme_linedraw()+
+                                                    xlab(colnames(dataset)[x]) +  
+                                                    scale_fill_manual(name = "DMUs", values =  c("Others"="blue" , "Selected"="orange")) 
+                                            
+                        )
+                        
+                }
+                
+                
+                
+                # or maybe for loop works with print() around the ggplot command
+                # or using a middle variable g, then taking out the ggplot part and put it in the list 
+                
+                
+                #select only the plots of chosen variables
+                to_select <- c(1:ncol(dataset)) %in% selected_vars
+                ptlist <- all_plots[to_select] 
+                
+                if (length(ptlist)==0) return(NULL)
+                
+                ptlist
+                #grid.arrange(grobs=ptlist,ncol=2)
+                
+        })
+        
+        dotplot_plot_func <- reactive({
+                ptlist <- ptlist_func()
+                grid.arrange(grobs=ptlist,ncol=2)
+        })
+        
+        dotplot_plot_eventReactive <- eventReactive(input$dotplot_button,{
+                dotplot_plot_func()
+        })
+        
+        output$dotplot_plot <-  renderPlot({
+                #dotplot_plot_func()
+                dotplot_plot_eventReactive()
+        })
+        
+        output$download_dotplot <- downloadHandler(
+                
+                filename = paste0("Dotplot",".png"), 
+                
+                content = function(file) {
+                        ptlist <- ptlist_func()
+                        ggsave(file, arrangeGrob(grobs = ptlist , ncol = 3),device = "png", dpi = 450)
+                }
+        ) 
+        
+        
+        
+        
         
 }) # End of Shiny app 

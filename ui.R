@@ -5,18 +5,10 @@ library(smacof)
 
 
 
-
-
-
-
-
-
-
-
-
-
 # Define UI for DEA Viz application
 shinyUI(
+        # Data load page
+        #####
         navbarPage(
                 title = 'DEA Visualization',
                 
@@ -92,9 +84,60 @@ shinyUI(
                                          )
                                  )
                          )),
-                # MDU
-                #####        
+                # Plots Menu
+                #####       
                 navbarMenu('Plots',
+                           # Simple variable histograms 
+                           ##### 
+                           tabPanel("Variable Histograms",
+                                    fluidPage(
+                                            
+                                            # Application title
+                                            titlePanel("Variable Histograms"),
+                                            
+                                            sidebarLayout(
+                                                    
+                                                    sidebarPanel(
+                                                            #action button 
+                                                            #size 
+                                                            #transparency
+                                                            #labels 
+                                                            
+                                                            helpText("Note: By pressing the plot button, the chosen variables would be visualized in histogram dot-plots. Each dot is representative of a DMU. Furthermore, one single DMU can be highlighted in the plots."), 
+                                                            tags$hr(),
+                                                            # dynamic UI of checkbox inputs
+                                                            uiOutput("dotplot_var_selection_ui"), 
+                                                            uiOutput("dotplot_dmu_selection_ui"),
+                                                            actionButton("dotplot_button","Plot") 
+                                                            
+                                                            #tags$hr(),
+                                                            #helpText("Note: You can highlight the position of a single DMU on the plots"),
+                                                            #uiOutput("dotplot_dmu_selection_ui")
+                                                            
+                                                            
+                                                            
+                                                            
+                                                    ),
+                                                    
+                                                    
+                                                    # Show the caption, a summary of the dataset and an HTML 
+                                                    # table with the requested number of observations
+                                                    mainPanel(
+                                                            
+                                                            
+                                                            plotOutput("dotplot_plot",width = "800px",height = "600px"),
+                                                            
+                                                            #textOutput("dotplot_info")
+                                                            #DT::dataTableOutput("dotplot_brush_info")
+                                                            downloadButton('download_dotplot', 'Download the Plot')
+                                                            
+                                                            
+                                                    )
+                                            )
+                                    ) 
+                           ),
+                           # CEM MDU
+                           #####  
                            tabPanel("CEM MDU",
                                     fluidPage(
                                             
@@ -117,6 +160,7 @@ shinyUI(
                                                             radioButtons("cem_approach",label = "CEM Approach", choices = list("Benevolent", "Aggressive"),selected = "Benevolent"),
                                                             actionButton("cem_mdu_button","Plot"), 
                                                             tags$hr(),
+                                                            uiOutput("cem_dotplot_dmu_selection_ui"),
                                                             checkboxInput('row_unfolding_labels', 'Row Object Labels', FALSE),
                                                             checkboxInput('col_unfolding_labels', 'Col Object Labels', FALSE),
                                                             sliderInput("cem_row_point_size", label = "Row Objects Point Size", min = 1 , max = 10 , value = 4),
@@ -134,20 +178,41 @@ shinyUI(
                                                     # Show the caption, a summary of the dataset and an HTML 
                                                     # table with the requested number of observations
                                                     mainPanel(
-                                                            
-                                                            
-                                                            plotOutput("cem_mdu_plot",width = "800px",height = "600px",
-                                                                       dblclick = "cem_dblclick",
-                                                                       brush = brushOpts(
-                                                                               id = "cem_brush",
-                                                                               resetOnNew = TRUE
-                                                                       )
-                                                                       
-                                                            ),
-                                                            verbatimTextOutput("cem_mdu_info"),
-                                                            #tableOutput("cem_mdu_info")
-                                                            downloadButton('download_cem_unfolding', 'Download the Plot')
-                                                            
+                                                            tabsetPanel(
+                                                                    id = 'CEM_tabset_panel',
+                                                                    tabPanel("CEM Unfolding Visualization",
+                                                                             
+                                                                             plotOutput("cem_mdu_plot",width = "800px",height = "600px",
+                                                                                        dblclick = "cem_dblclick",
+                                                                                        brush = brushOpts(
+                                                                                                id = "cem_brush",
+                                                                                                resetOnNew = TRUE
+                                                                                        )
+                                                                                        
+                                                                             ),
+                                                                             DT::dataTableOutput("cem_brush_info"),
+                                                                             DT::dataTableOutput("all_data"),
+                                                                             verbatimTextOutput("cem_mdu_info"),
+                                                                             #tableOutput("cem_mdu_info")
+                                                                             downloadButton('download_cem_unfolding', 'Download the Plot')
+                                                                             
+                                                                    ),
+                                                                    tabPanel("Optimum Weights Dotplots",
+                                                                             
+                                                                             helpText("Standardized Weights of Inputs"), 
+                                                                             plotOutput("input_weights_dotplots",width = "800px",height = "600px"),
+                                                                             tags$hr(),
+                                                                             helpText("Standardized Weights of Outputs"),
+                                                                             plotOutput("output_weights_dotplots",width = "800px",height = "600px"),
+                                                                             
+                                                                             DT::dataTableOutput("cem_weights_info"),
+                                                                             DT::dataTableOutput("cem_weights_std_info")
+                                                                             
+                                                                             # now the dotplots using grid.arrange() similar to the simple dotplots
+                                                                             
+                                                                    )
+                                                                    
+                                                            )
                                                             
                                                             
                                                     )
@@ -196,17 +261,17 @@ shinyUI(
                                                     mainPanel(
                                                             
                                                             #plotOutput("Porembski_plot"),
-                                                            plotOutput("Porembski_plot",width = "800px","600px",
+                                                            plotOutput("Porembski_plot",width = "800px",height = "600px",
                                                                        dblclick = "Porembski_dblclick",
                                                                        brush = brushOpts(
                                                                                id = "Porembski_brush",
                                                                                resetOnNew = TRUE
                                                                        )
                                                             ),
+                                                            downloadButton('download_Porembski_graph', 'Download the Plot'),
+                                                            DT::dataTableOutput("Proembski_brush_info")
+                                                            #tableOutput("Porembski_info"),
                                                             
-                                                            tableOutput("Porembski_info"),
-                                                            
-                                                            downloadButton('download_Porembski', 'Download the Plot')
                                                             
                                                             
                                                             
@@ -261,7 +326,9 @@ shinyUI(
                                                                        )
                                                             ),
                                                             downloadButton('download_biplot', 'Download the Plot'),
-                                                            tableOutput("biplot_info")
+                                                            #tableOutput("biplot_info")
+                                                            DT::dataTableOutput("biplot_brush_info")
+                                                            
                                                             
                                                     )
                                             )
@@ -372,7 +439,8 @@ shinyUI(
                                                                        )
                                                             ),
                                                             downloadButton('download_Costa', 'Download the Plot'),
-                                                            tableOutput("Costa_info")
+                                                            #tableOutput("Costa_info")
+                                                            DT::dataTableOutput("Costa_brush_info")
                                                             
                                                     )
                                             )
@@ -432,7 +500,8 @@ shinyUI(
                                                                        )
                                                             ),
                                                             downloadButton('download_mds', 'Download the Plot'),
-                                                            tableOutput("mds_info")
+                                                            #tableOutput("mds_info")
+                                                            DT::dataTableOutput("mds_brush_info")
                                                             
                                                     )
                                             )
@@ -456,9 +525,12 @@ shinyUI(
                                                          "This app is created and currently under development by Shahin Ashkiani. It was made public in 16th Aug 2017. ",
                                                          tags$br(),
                                                          "The current version needs several improvements and amendments, however this boat even at this ",
-                                                         "level can sail. If not a sea, but it can survive lakes!",
+                                                         "level can sail. If not seas, but it can survive lakes!",
                                                          tags$br(),
-                                                         
+                                                         "I couldn't develop this applet without help of these packages: Shiny, MASS, readr, lpSolve, Benchmarking, smacof, devtools, ggplot2, kohonen, ggrepel, DT.",
+                                                         tags$br(),
+                                                         "Salute to all the great developers of all these great packages!",
+                                                         tags$br(),
                                                          tags$br(),
                                                          "To contact me you can use the following address:", 
                                                          tags$br(),
@@ -471,7 +543,7 @@ shinyUI(
                                                          tags$br(),
                                                          "© Shahin Ashkiani 2017
                                                          [August 2017]
-                                                         Except as permitted by the European copyright law applicable to you, you may not reproduce any of the parts on this website. The files downloadable from this website, unless with proper citation of the applet and its author.
+                                                         Except as permitted by the European copyright law applicable to you, you may not reproduce any of the parts on this website. The files downloadable from this website is reproducible with proper citation of the applet and its author.
                                                          I may change these terms of use from time to time."
                                                  )
                                                  
