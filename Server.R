@@ -35,106 +35,11 @@ options(expressions = 500000)
 # 2 September ----> PCA and MDS std weight plots are added 
 # 3 September ----> brushing, zooming ,and download button for the PCA/MDS weight plots 
 
+# 9 September ----> optimization of cross-efficiency algorithm 
+
 
 set.seed(7)
 #####
-##CEM MDU Functions
-
-all_OFs = function(input_mat, output_mat) {
-        #this function receives the input and output levels and generates a matrix in which each 
-        #row is the objective function coefficients of the corresponding unit. 
-        #in other words, all_OFs[i,] is the OF coefficients of unit i
-        #ready to be used in lp()
-        
-        # I assume that the row size of the input_mat and output_mat are equal
-        # Although, it is possible to put a check here 
-        input_mat = as.matrix(input_mat)
-        output_mat = as.matrix(output_mat)
-        
-        number_of_units = nrow(input_mat)
-        number_of_inputs = ncol(input_mat)
-        number_of_outputs = ncol(output_mat)
-        
-        #creating the final matrix 
-        all_OFs = matrix(nrow = number_of_units, ncol =  number_of_outputs+number_of_inputs  )
-        
-        #filling the final matrix
-        for (unit in 1:number_of_units) {
-                all_OFs[unit,] = c(output_mat[unit,],rep(0,number_of_inputs))
-                
-        }
-        
-        all_OFs
-        #now by picking every row
-        #it is possible to add input and output names to this matrix. Maybe in next versions
-        
-}
-
-constraints_directions = function(input_mat) {
-        #the = and <= directions of A matrix 
-        # assuming that nrow(input_mat)==nrow(output_mat)
-        number_of_units = nrow(input_mat)
-        
-        t = c("==",rep("<=",number_of_units-1))
-        
-        t
-        
-} #--- End of Constraints_directions()
-
-rhs = function(input_mat){
-        #returns the rhs values
-        #assuming nrow(input_mat)==ncol(input_mat)
-        
-        number_of_units = nrow(input_mat)
-        
-        t=c(1,rep(0,number_of_units-1))
-        
-        t
-}
-
-
-simple_efficiency = function(input_mat,output_mat,epsilon_value = 0.001){
-        #this function is supposed to return the simple efficiency scores of all units. 
-        #assuming that nrow(input_mat)==nrow(output_mat)
-        number_of_units = nrow(input_mat)
-        OF_coefficients = all_OFs(input_mat, output_mat)
-        
-        number_of_inputs = ncol(input_mat)
-        number_of_outputs = ncol(output_mat)
-        d = number_of_inputs + number_of_outputs
-        
-        #A_lower = epsilons_mat(input_mat=input_mat,output_mat=output_mat,epsilon_value = 0.00001)
-        A_lower = diag(d)
-        
-        C_upper =constraints_directions(input_mat = input_mat )
-        C = c(C_upper,rep(">=",d))
-        
-        rhs_upper=rhs(input_mat = input_mat)
-        rhs = c(rhs_upper, rep(epsilon_value,d))
-        
-        simple_eff = vector(length = number_of_units)
-        
-        for (i in 1:number_of_units){
-                
-                A_upper=A_mat(unit=i, input_mat=input_mat, output_map=output_mat)
-                A = rbind(A_upper,A_lower)
-                
-                
-                
-                
-                DEA_LP = lp(direction = "max",objective.in = OF_coefficients[i,],const.mat = A, const.dir = C, const.rhs = rhs  )
-                #model$solution & $objval
-                
-                simple_eff[i] = DEA_LP$objval 
-                
-        }
-        
-        simple_eff  
-        
-        
-} #---- End of Simple_efficiency()
-
-
 
 crs_eff <- function(dataset, num_of_inputs, orientation = "in" ){
         inputs <- dataset[,1:num_of_inputs]

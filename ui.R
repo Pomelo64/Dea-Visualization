@@ -578,15 +578,15 @@ shinyUI(
                                                          tags$br(),
                                                          tags$br(),
                                                          "© Shahin Ashkiani 2017
-                                                                 [August 2017]
-                                                                 Except as permitted by the European copyright law applicable to you, you may not reproduce any of the parts on this website. The files downloadable from this website is reproducible with proper citation of the applet and its author.
-                                                                 I may change these terms of use from time to time."
+                                                         [August 2017]
+                                                         Except as permitted by the European copyright law applicable to you, you may not reproduce any of the parts on this website. The files downloadable from this website is reproducible with proper citation of the applet and its author.
+                                                         I may change these terms of use from time to time."
                                                  )
                                                  
                                                  #tags$a(href="www.Shahin-Ashkiani.com", "www.Shahin-Ashkiani.com") 
                                                  
                                                  
-                                         ),
+                                                 ),
                                          
                                          
                                          # Show the caption, a summary of the dataset and an HTML 
@@ -597,8 +597,8 @@ shinyUI(
                                                  #tags$img(src = "https://ibb.co/g3cjzv", width = "100px", height = "100px")
                                                  img(src='Shahin-Shiny-Cartoon.png', width = "700px", height = "500px") 
                                          )
+                                         )
                                  )
-                         )
                 )
                 
                 
