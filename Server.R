@@ -12,6 +12,7 @@ library(DT)
 library(gridExtra)
 library(RColorBrewer)
 #library(shinyjs)
+options(expressions = 500000)
 
 # 17 August 10am ---> rectifying xlim ylim. Now all the points are seen clearly
 # 17 August  ------> experiment on Costa frontier to figure out the best combination of shape and color, also to add legend 
@@ -432,6 +433,7 @@ shinyServer(function(input, output) {
                 
                 
                 eff_weight_list <- dea_4cem(dataset = dataset, number_of_inputs = number_of_inputs)
+                #4th or 2nd component of dea_4cem? 
                 eff_weight_mat <- eff_weight_list[[2]]
                 simple_eff <- eff_weight_list[[1]]
                 
@@ -485,7 +487,15 @@ shinyServer(function(input, output) {
                 #print(t$solution>=0)
                 #print("CEM_unit output, ben opt weights")
                 #print(t$solution)
-                return(t$solution)
+                
+                if (sum(t$solution) == 0 ) {
+                        cem_weight <- eff_weight_mat[unit,]
+                } else {
+                        cem_weight <- t$solution 
+                }
+                
+                #return(t$solution)
+                return(cem_weight)
         }
         
         
@@ -497,8 +507,6 @@ shinyServer(function(input, output) {
                 number_of_units = nrow(dataset)
                 number_of_inputs = number_of_inputs
                 number_of_outputs = ncol(dataset)- number_of_inputs
-                
-                
                 number_of_variables = number_of_inputs+number_of_outputs
                 
                 eff_weight_list <- dea_4cem(dataset = dataset, number_of_inputs = number_of_inputs)
@@ -511,42 +519,52 @@ shinyServer(function(input, output) {
                         
                         CEM_opt_weights[unit,] = CEM_unit(dataset , unit , epsilon = 0.00001, number_of_inputs = number_of_inputs)
                         
-                        
-                        
-                        if ( sum(CEM_opt_weights[unit,]) == 0 ) { 
-                                #print("------")
-                                
-                                #print(CEM_opt_weights[unit,])
-                                #print("replaced with")
-                                #print(sum(CEM_opt_weights[unit,]))
-                                CEM_opt_weights[unit,] <- eff_weight_mat[unit,]
-                                #print(eff_weight_mat[unit,])
-                        }
+                        # can be moved to cem_unit()
+                        #if ( sum(CEM_opt_weights[unit,]) == 0 ) { 
+                        #        
+                        #        CEM_opt_weights[unit,] <- eff_weight_mat[unit,]
+                        #        #print(eff_weight_mat[unit,])
+                        #}
                 }
                 
                 
                 
                 CEM = matrix (nrow = number_of_units, ncol = number_of_units)
                 
+                # matrix multiplication solution 
+                w_outputs = CEM_opt_weights[,1:number_of_outputs]
+                w_inputs = CEM_opt_weights[,(number_of_outputs+1):number_of_variables]
+                inputs <- dataset[,1:number_of_inputs]
+                outputs <- dataset[,(number_of_inputs+1):number_of_variables]
                 
-                #deactive in order to resolve zero weight bug 
+                cem_output <- w_outputs %*% t(outputs)
+                cem_input <- w_inputs %*% t(inputs)
                 
-                #for (row in 1:number_of_units){
-                #        if ( sum(CEM_opt_weights[row,]) == 0 ) { 
-                #                
-                #                CEM_opt_weights[row,] <- eff_weight_mat[row,]
-                #        }
-                #}
+                CEM <- cem_output/ cem_input 
+                
+                #cem_matrix_multiplication <- cem_output/cem_input 
+                
+                #print("-----")
+                #print("dimensions of the new cem mat")
+                #print(dim(cem_matrix_multiplication))
                 
                 # can be integrated in the above loop!  
-                for (row in 1:number_of_units){
-                        w_outputs = CEM_opt_weights[row,1:number_of_outputs]
-                        w_inputs = CEM_opt_weights[row,(number_of_outputs+1):number_of_variables]
-                        
-                        ## This can be heavily optimized with matrix operations rather than scalar
-                        CEM[row,] = apply(X = t(t(dataset[,(number_of_inputs+1):number_of_variables]) * CEM_opt_weights[row,1:number_of_outputs]), MARGIN = 1 , FUN = sum ) / apply(X = t(t(dataset[,1:number_of_inputs]) * CEM_opt_weights[row,(number_of_outputs+1):number_of_variables]), MARGIN = 1 , FUN = sum )
-                        
-                }
+                #for (row in 1:number_of_units){
+                #        w_outputs = CEM_opt_weights[row,1:number_of_outputs]
+                #        w_inputs = CEM_opt_weights[row,(number_of_outputs+1):number_of_variables]
+                #        
+                #        
+                #        
+                #        ## This can be heavily optimized with matrix operations rather than scalar
+                #        CEM[row,] = apply(X = t(t(dataset[,(number_of_inputs+1):number_of_variables]) * CEM_opt_weights[row,1:number_of_outputs]), MARGIN = 1 , FUN = sum ) / apply(X = t(t(dataset[,1:number_of_inputs]) * CEM_opt_weights[row,(number_of_outputs+1):number_of_variables]), MARGIN = 1 , FUN = sum )
+                #
+                #}
+                
+                #print("-----")
+                #print("Do the two approaches give identical output?")
+                #print(identical(round(CEM,4),round(cem_matrix_multiplication,4)))
+                #print(sum(round(CEM,4)==round(cem_matrix_multiplication,4))) 
+                #print("-----")
                 
                 return(CEM)
                 
@@ -794,7 +812,7 @@ shinyServer(function(input, output) {
                 
         })
         
-        
+        #------ Weight dotplots         
         
         input_weights_dotplot_dataset <- eventReactive(input$cem_mdu_button,{
                 dataset <- final_dataset_reactive()
@@ -831,18 +849,9 @@ shinyServer(function(input, output) {
                 
                 dataset <- input_weights_dotplot_dataset()
                 
-                
-                
                 color <- rep("Others",nrow(dataset))
                 if (input$cem_dotplot_dmu_selection != "None") {color[as.numeric(input$cem_dotplot_dmu_selection)] <- "Selected"}
                 dataset$color <- as.factor(color)
-                
-                #print("-----")
-                #print("dmu selected for cem dotplots")
-                #print(input$cem_dotplot_dmu_selection)
-                
-                #myColors <- brewer.pal(2,"Set1")
-                #names(myColors) <- levels(dataset$color)
                 
                 # for removing legend when there is no selected DMU
                 if (input$cem_dotplot_dmu_selection == "None" ) {
@@ -866,16 +875,6 @@ shinyServer(function(input, output) {
                         
                 }
                 
-                
-                
-                # or maybe for loop works with print() around the ggplot command
-                # or using a middle variable g, then taking out the ggplot part and put it in the list 
-                
-                
-                #select only the plots of chosen variables
-                #to_select <- c(1:ncol(dataset)) %in% selected_vars
-                #ptlist <- all_plots[to_select] 
-                
                 if (length(all_plots)==0) return(NULL)
                 
                 return(all_plots)
@@ -888,9 +887,15 @@ shinyServer(function(input, output) {
                 grid.arrange(grobs=ptlist,ncol=2)
         })
         
-        #dotplot_plot_eventReactive <- eventReactive(input$dotplot_button,{
-        #        dotplot_plot_func()
-        #})
+        output$download_cem_input_dotplot <- downloadHandler(
+                filename = "CEM_weight_input_dotplot.png",
+                content = function(file) {
+                        ptlist <- input_weight_plot_list_func()
+                        ggsave(file, arrangeGrob(grobs = ptlist , ncol = 3),device = "png", dpi = 450)
+                        #ggsave(file, plot = cem_unfolding_plot(), device = "png", dpi = 450)
+                }
+        ) 
+        
         
         output$input_weights_dotplots <-  renderPlot({
                 #dotplot_plot_func()
@@ -902,15 +907,9 @@ shinyServer(function(input, output) {
                 
                 dataset <- output_weights_dotplot_dataset()
                 
-                
-                
                 color <- rep("Others",nrow(dataset))
                 if (input$cem_dotplot_dmu_selection != "None") {color[as.numeric(input$cem_dotplot_dmu_selection)] <- "Selected"}
                 dataset$color <- as.factor(color)
-                
-                
-                #myColors <- brewer.pal(2,"Set1")
-                #names(myColors) <- levels(dataset$color)
                 
                 # for removing legend when there is no selected DMU
                 if (input$cem_dotplot_dmu_selection == "None" ) {
@@ -946,9 +945,14 @@ shinyServer(function(input, output) {
                 grid.arrange(grobs=ptlist,ncol=2)
         })
         
-        #dotplot_plot_eventReactive <- eventReactive(input$dotplot_button,{
-        #        dotplot_plot_func()
-        #})
+        output$download_cem_input_dotplot <- downloadHandler(
+                filename = "CEM_weight_output_dotplot.png",
+                content = function(file) {
+                        ptlist <- output_weight_plot_list_func()
+                        ggsave(file, arrangeGrob(grobs = ptlist , ncol = 3),device = "png", dpi = 450)
+                        #ggsave(file, plot = cem_unfolding_plot(), device = "png", dpi = 450)
+                }
+        ) 
         
         output$output_weights_dotplots <-  renderPlot({
                 output_weights_plot_grid_func()
@@ -1036,6 +1040,8 @@ shinyServer(function(input, output) {
                 
         })
         
+        cem_weight_plot_ranges <- reactiveValues(x = NULL, y = NULL)
+        
         cem_biplot_func <- reactive({
                 #----biplot version
                 z <- opt_weight_biplot_data()
@@ -1069,9 +1075,8 @@ shinyServer(function(input, output) {
                         coord_fixed(ratio = 1) + 
                         ggtitle("Optimum Weights PCA Biplot") 
                 
-                
-                ##g <- g  + 
-                ##        coord_cartesian(xlim = biplot_ranges$x, ylim = biplot_ranges$y, expand = TRUE)
+                g <- g  + 
+                        coord_cartesian(xlim = cem_weight_plot_ranges$x, ylim = cem_weight_plot_ranges$y, expand = TRUE)
                 
                 switch(EXPR = as.character(input$cem_biplot_point_labels), 
                        "TRUE" = (g + geom_text_repel(data = z1, aes(x = PC1, y = PC2 , label = DMU), color = "blue") ),
@@ -1084,27 +1089,7 @@ shinyServer(function(input, output) {
                 
                 mds_data <- opt_weight_mds_data()
                 
-                #print("-----")
-                #print(paste0("mds_Data class:",class(mds_data)))
-                
                 points <- cbind(mds_data[[2]],mds_data[[1]])
-                #weights <- mds_data[[1]]
-                
-                #print("=====")
-                #print("colnames of weights")
-                #print(colnames(points))
-                #print("can it find the right var?")
-                
-                #print(index)
-                #print(points[,index])
-                #print("=====")
-                
-                #print(paste0("cem mds points DIM:",points))
-                #print("-----")
-                #print("head of cem mds dataset")
-                #print(head(points))
-                #print("-----")
-                #print(input$cem_mds_var_selection_input)
                 
                 selected_var <- input$cem_mds_var_selection_input
                 
@@ -1151,6 +1136,9 @@ shinyServer(function(input, output) {
                         coord_fixed(ratio = 1) + 
                         ggtitle("Optimum Weights MDS map") 
                 
+                g <- g  + 
+                        coord_cartesian(xlim = cem_weight_plot_ranges$x, ylim = cem_weight_plot_ranges$y, expand = TRUE)
+                
                 switch(EXPR = as.character(input$cem_biplot_point_labels), 
                        "TRUE" = (g + geom_text_repel(data = points, aes(x = D1, y = D2 , label = DMU), color = "blue") ),
                        "FALSE" = g 
@@ -1170,19 +1158,36 @@ shinyServer(function(input, output) {
         
         output$opt_weights_plot <- renderPlot({
                 
-                #switch(EXPR = input$cem_weight_plot_method, 
-                #       "PCA" = cem_biplot_func(),
-                #       "MDS" = cem_mds_func()
-                #)
                 cem_weights_pca_mds_plot()
+        })
+        
+        observeEvent(input$opt_weights_dblclick, {
+                brush <- input$opt_weights_brush
+                if (!is.null(brush)) {
+                        cem_weight_plot_ranges$x <- c(brush$xmin, brush$xmax)
+                        cem_weight_plot_ranges$y <- c(brush$ymin, brush$ymax)
+                        
+                } else {
+                        cem_weight_plot_ranges$x <- NULL
+                        cem_weight_plot_ranges$y <- NULL
+                }
+        })
+        
+        output$cem_opt_weights_brush_info <- DT::renderDataTable({
+                
+                dataset <- switch(EXPR = input$cem_weight_plot_method, 
+                                  "PCA" = opt_weight_biplot_data()[[1]],
+                                  "MDS" = cbind(opt_weight_mds_data()[[1]],opt_weight_mds_data()[[2]])
+                                  
+                                  #z <- opt_weight_biplot_data()
+                )
+                res <- brushedPoints(dataset, input$opt_weights_brush)
+                datatable(res)
         })
         
         output$download_cem_weight_plot <- downloadHandler(
                 filename = "CEM_weight_plot.png",
                 content = function(file) {
-                        #png(file)
-                        #print(cem_unfolding_plot())
-                        #dev.off()
                         ggsave(file, plot = cem_weights_pca_mds_plot(), device = "png", dpi = 450)
                 }
         ) 

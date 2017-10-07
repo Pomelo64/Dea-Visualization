@@ -211,11 +211,13 @@ shinyUI(
                                                                              
                                                                              helpText("Standardized Weights of Inputs"), 
                                                                              plotOutput("input_weights_dotplots",width = "800px",height = "600px"),
+                                                                             downloadButton('download_cem_input_dotplot', 'Download the Plot'),
                                                                              tags$hr(),
                                                                              helpText("Standardized Weights of Outputs"),
                                                                              plotOutput("output_weights_dotplots",width = "800px",height = "600px"),
+                                                                             downloadButton('download_cem_output_dotplot', 'Download the Plot'),
                                                                              
-                                                                             DT::dataTableOutput("cem_weights_info"),
+                                                                             #DT::dataTableOutput("cem_weights_info"),
                                                                              DT::dataTableOutput("cem_weights_std_info")
                                                                              
                                                                              # now the dotplots using grid.arrange() similar to the simple dotplots
@@ -224,9 +226,17 @@ shinyUI(
                                                                     
                                                                     tabPanel("Optimum Weights Plot",
                                                                              
-                                                                             helpText("MDS of opt_weights"), 
-                                                                             plotOutput("opt_weights_plot",width = "800px",height = "600px"),
-                                                                             downloadButton('download_cem_weight_plot', 'Download the Plot')
+                                                                             
+                                                                             #plotOutput("opt_weights_plot",width = "800px",height = "600px"),
+                                                                             plotOutput("opt_weights_plot",width = "800px",height = "600px",
+                                                                                        dblclick = "opt_weights_dblclick",
+                                                                                        brush = brushOpts(
+                                                                                                id = "opt_weights_brush",
+                                                                                                resetOnNew = TRUE
+                                                                                        )
+                                                                             ),
+                                                                             downloadButton('download_cem_weight_plot', 'Download the Plot'),
+                                                                             DT::dataTableOutput("cem_opt_weights_brush_info")
                                                                              #tags$hr(),
                                                                              #helpText("Standardized Weights of Outputs"),
                                                                              #plotOutput("output_weights_dotplots",width = "800px",height = "600px"),
@@ -568,15 +578,15 @@ shinyUI(
                                                          tags$br(),
                                                          tags$br(),
                                                          "© Shahin Ashkiani 2017
-                                                         [August 2017]
-                                                         Except as permitted by the European copyright law applicable to you, you may not reproduce any of the parts on this website. The files downloadable from this website is reproducible with proper citation of the applet and its author.
-                                                         I may change these terms of use from time to time."
+                                                                 [August 2017]
+                                                                 Except as permitted by the European copyright law applicable to you, you may not reproduce any of the parts on this website. The files downloadable from this website is reproducible with proper citation of the applet and its author.
+                                                                 I may change these terms of use from time to time."
                                                  )
                                                  
                                                  #tags$a(href="www.Shahin-Ashkiani.com", "www.Shahin-Ashkiani.com") 
                                                  
                                                  
-                                                 ),
+                                         ),
                                          
                                          
                                          # Show the caption, a summary of the dataset and an HTML 
@@ -587,8 +597,8 @@ shinyUI(
                                                  #tags$img(src = "https://ibb.co/g3cjzv", width = "100px", height = "100px")
                                                  img(src='Shahin-Shiny-Cartoon.png', width = "700px", height = "500px") 
                                          )
-                                         )
                                  )
+                         )
                 )
                 
                 
