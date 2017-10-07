@@ -805,8 +805,6 @@ shinyServer(function(input, output) {
                 
         })
         
-        
-        
         #CEM MDU plot
         cem_unfolding <- reactive({
                 t <- cem_reactive()
@@ -814,11 +812,9 @@ shinyServer(function(input, output) {
                 unfolding(delta = round((1-t),2),ndim = 2)
         })
         
-        
         cem_ranges <- reactiveValues(x = NULL, y = NULL)
         
         cem_unfolding_plot <- reactive({
-                
                 
                 t <- cem_unfolding()
                 row_df <- data.frame(t$conf.row, "DMU" = c(1:nrow(t$conf.row)), Type = "Rating", Shape = 19) 
@@ -891,7 +887,7 @@ shinyServer(function(input, output) {
                 
                 g <- g  + theme_linedraw() + annotate("text", x = Inf, y = -Inf, label = "© DEA-Viz",
                                                       hjust=1.1, vjust=-1.1, col="blue", cex=6,
-                                                      fontface = "bold", alpha = 0.8) + 
+                                                      fontface = "bold", alpha = 0.4) + 
                         xlim(total_min , total_max) +
                         ylim(total_min , total_max ) 
                 
@@ -912,11 +908,8 @@ shinyServer(function(input, output) {
                 g
         })
         
-        
         output$cem_mdu_plot <- renderPlot({
-                
                 cem_unfolding_plot()
-                
         })
         
         #for zooming by double click
@@ -931,8 +924,6 @@ shinyServer(function(input, output) {
                         cem_ranges$y <- NULL
                 }
         })
-        
-        
         
         #Info of CEM unfolding
         output$cem_mdu_info <- renderText({
@@ -981,7 +972,6 @@ shinyServer(function(input, output) {
                 Porembsky_df=data.frame(DMU=1:nrow(t),Porembsky_sammon$points,Efficiency = porembski_eff$eff)
                 Porembsky_df$color = as.character(ifelse(Porembsky_df$Efficiency==1,"Efficient","Inefficient"))
                 Porembsky_df
-                
         })
         
         porembski_edges <- eventReactive(input$Porembski_button, {
@@ -1049,7 +1039,7 @@ shinyServer(function(input, output) {
                 
                 g<- g+ theme_linedraw()  + annotate("text", x = Inf, y = -Inf, label = "© DEA-Viz",
                                                     hjust=1.1, vjust=-1.1, col="blue", cex=6,
-                                                    fontface = "bold", alpha = 0.6) + 
+                                                    fontface = "bold", alpha = 0.4) + 
                         xlim(total_min , total_max) +
                         ylim(total_min , total_max ) +
                         coord_fixed(ratio = 1) + 
@@ -1065,9 +1055,11 @@ shinyServer(function(input, output) {
                 
         })
         
+        
         output$Porembski_plot <- renderPlot({
                 Porembski_plot_reactive()
         })
+        
         
         observeEvent(input$Porembski_dblclick, {
                 brush <- input$Porembski_brush
@@ -1080,6 +1072,7 @@ shinyServer(function(input, output) {
                         Porembski_ranges$y <- NULL
                 }
         })
+        
         
         output$download_Porembski_graph <- downloadHandler(
                 filename = "Porembski_graph.png",
@@ -1094,8 +1087,6 @@ shinyServer(function(input, output) {
         output$Porembski_info <- renderTable({
                 head(porembski_points())
         })
-        
-        
         
         #####
         
@@ -1119,13 +1110,6 @@ shinyServer(function(input, output) {
         })
         
         ranges <- reactiveValues(x = NULL, y = NULL)
-        
-        #output$plot1 <- renderPlot({
-        #        ggplot(mtcars, aes(wt, mpg)) +
-        #                geom_point() +
-        #                coord_cartesian(xlim = ranges$x, ylim = ranges$y, expand = FALSE)
-        #})
-        
         
         biplot_plot <- reactive({
                 x <- biplot_data()
@@ -1193,7 +1177,8 @@ shinyServer(function(input, output) {
                         xlim(total_min, total_max) +
                         ylim(total_min, total_max) +
                         coord_fixed(ratio = 1) + 
-                        ggtitle("DEA PCA Biplot")
+                        ggtitle("DEA PCA Biplot") 
+                
                 
                 g <- g  + 
                         coord_cartesian(xlim = ranges$x, ylim = ranges$y, expand = TRUE)
@@ -1206,9 +1191,11 @@ shinyServer(function(input, output) {
                 
         })
         
+        
         output$biplot_plot <- renderPlot({
                 biplot_plot()
         })
+        
         
         # When a double-click happens, check if there's a brush on the plot.
         # If so, zoom to the brush bounds; if not, reset the zoom.
@@ -1463,7 +1450,7 @@ shinyServer(function(input, output) {
                 
                 g<- g+ theme_linedraw()  + annotate("text", x = Inf, y = -Inf, label = "© DEA-Viz",
                                                     hjust=1.1, vjust=-1.1, col="blue", cex=6,
-                                                    fontface = "bold", alpha = 0.5) +
+                                                    fontface = "bold", alpha = 0.4) +
                         xlim(total_min , total_max) +
                         ylim(total_min , total_max) +
                         coord_fixed(ratio = 1) + 

@@ -40,6 +40,7 @@ shinyUI(
                                                                     'text/comma-separated-values,text/plain', 
                                                                     '.csv')),
                                                  
+                                                 
                                                  numericInput("num_of_inputs", "Number of Input factors", 1), 
                                                  
                                                  checkboxInput('header', 'Header', TRUE),
@@ -116,14 +117,14 @@ shinyUI(
                                                             radioButtons("cem_approach",label = "CEM Approach", choices = list("Benevolent", "Aggressive"),selected = "Benevolent"),
                                                             actionButton("cem_mdu_button","Plot"), 
                                                             tags$hr(),
-                                                            
+                                                            checkboxInput('row_unfolding_labels', 'Row Object Labels', FALSE),
+                                                            checkboxInput('col_unfolding_labels', 'Col Object Labels', FALSE),
                                                             sliderInput("cem_row_point_size", label = "Row Objects Point Size", min = 1 , max = 10 , value = 4),
                                                             sliderInput("cem_col_point_size", label = "Col Objects Point Size", min = 1 , max = 10 , value = 4), 
                                                             sliderInput("cem_row_transparency", label = "Row Objects Transparency", min = 0.1 , max = 1 , value = 0.5),
-                                                            sliderInput("cem_col_transparency", label = "Col Objects Transparency", min = 0.1 , max = 1 , value = 0.5),
+                                                            sliderInput("cem_col_transparency", label = "Col Objects Transparency", min = 0.1 , max = 1 , value = 0.5)
                                                             
-                                                            checkboxInput('row_unfolding_labels', 'Row Object Labels', TRUE),
-                                                            checkboxInput('col_unfolding_labels', 'Col Object Labels', FALSE)
+                                                            
                                                             
                                                             
                                                             
@@ -135,7 +136,7 @@ shinyUI(
                                                     mainPanel(
                                                             
                                                             
-                                                            plotOutput("cem_mdu_plot",
+                                                            plotOutput("cem_mdu_plot",width = "800px",height = "600px",
                                                                        dblclick = "cem_dblclick",
                                                                        brush = brushOpts(
                                                                                id = "cem_brush",
@@ -179,13 +180,13 @@ shinyUI(
                                                             actionButton("Porembski_button","Plot"), 
                                                             
                                                             tags$hr(),
-                                                            
+                                                            checkboxInput('Porembski_labels', 'Labels', FALSE),
                                                             sliderInput("Porembski_point_size", label = "Point Size", min = 1 , max = 10 , value = 4),
                                                             sliderInput("Porembski_point_transparency", label = "Point Transparency", min = 0.1 , max = 1 , value = 0.5),
                                                             sliderInput("Porembski_edge_transparency", label = "Edge Transparency", min = 1 , max = 10 , value = 4),
-                                                            sliderInput("Porembski_edge_treshold", label = "Edge Treshold", min = 0 , max = 0.95 , value = 0),
+                                                            sliderInput("Porembski_edge_treshold", label = "Edge Treshold", min = 0 , max = 0.95 , value = 0)
                                                             
-                                                            checkboxInput('Porembski_labels', 'Labels', TRUE)
+                                                            
                                                             
                                                     ),
                                                     
@@ -195,7 +196,7 @@ shinyUI(
                                                     mainPanel(
                                                             
                                                             #plotOutput("Porembski_plot"),
-                                                            plotOutput("Porembski_plot",
+                                                            plotOutput("Porembski_plot",width = "800px","600px",
                                                                        dblclick = "Porembski_dblclick",
                                                                        brush = brushOpts(
                                                                                id = "Porembski_brush",
@@ -234,15 +235,15 @@ shinyUI(
                                                             tags$hr(),
                                                             
                                                             radioButtons("biplot_dea_model",label = "DEA Model for Coloring", choices = list("CRS", "VRS"),selected = "CRS"),
-                                                            
+                                                            checkboxInput('biplot_labels', 'Labels', FALSE),
                                                             sliderInput("biplot_point_size", label = "Point Size", min = 1 , max = 10 , value = 4),
                                                             sliderInput("biplot_point_transparency", label = "Point Transparency", min = 0.1 , max = 1 , value = 0.5),
                                                             sliderInput("biplot_vector_transparency", label = "Vector Transparency", min = 0.1 , max = 1 , value = 0.5),
                                                             sliderInput("biplot_vector_size", label = "Vector Size", min = 1 , max = 10 , value = 4),
                                                             #sliderInput("biplot_vector_treshold", label = "Vector Treshold", min = 0 , max = 0.95 , value = 0),
-                                                            sliderInput("biplot_vector_text_size", label = "Vector Text Size", min = 1 , max = 10 , value =2 ),
+                                                            sliderInput("biplot_vector_text_size", label = "Vector Text Size", min = 1 , max = 10 , value =2 )
                                                             #sliderInput("biplot_vector_text_size", label = "Vector Text Size", min = 1 , max = 10 , value =2 ),
-                                                            checkboxInput('biplot_labels', 'Labels', TRUE)
+                                                            
                                                             
                                                     ),
                                                     
@@ -252,7 +253,7 @@ shinyUI(
                                                     mainPanel(
                                                             
                                                             #plotOutput("biplot_plot"),
-                                                            plotOutput("biplot_plot",
+                                                            plotOutput("biplot_plot",width = "800px",height = "600px",
                                                                        dblclick = "biplot_dblclick",
                                                                        brush = brushOpts(
                                                                                id = "biplot_brush",
@@ -346,14 +347,14 @@ shinyUI(
                                                             tags$hr(),
                                                             
                                                             
-                                                            
+                                                            checkboxInput('Costa_labels', 'Labels', FALSE),
                                                             sliderInput("Costa_point_size", label = "Point Size", min = 1 , max = 10 , value = 4),
-                                                            sliderInput("Costa_point_transparency", label = "Point Transparency", min = 0.1 , max = 1 , value = 0.5),
+                                                            sliderInput("Costa_point_transparency", label = "Point Transparency", min = 0.1 , max = 1 , value = 0.5)
                                                             #sliderInput("biplot_vector_transparency", label = "Vector Transparency", min = 0.1 , max = 1 , value = 0.5),
                                                             #sliderInput("biplot_vector_size", label = "Vector Size", min = 1 , max = 5 , value = 1),
                                                             #sliderInput("biplot_vector_treshold", label = "Vector Treshold", min = 0 , max = 0.95 , value = 0),
                                                             #sliderInput("biplot_vector_text_size", label = "Vector Text Size", min = 1 , max = 10 , value =2 ),
-                                                            checkboxInput('Costa_labels', 'Labels', TRUE)
+                                                            
                                                             
                                                     ),
                                                     
@@ -363,7 +364,7 @@ shinyUI(
                                                     mainPanel(
                                                             
                                                             #plotOutput("biplot_plot"),
-                                                            plotOutput("Costa_plot",
+                                                            plotOutput("Costa_plot",width = "800px",height = "600px",
                                                                        dblclick = "Costa_dblclick",
                                                                        brush = brushOpts(
                                                                                id = "Costa_brush",
@@ -406,14 +407,14 @@ shinyUI(
                                                             tags$hr(),
                                                             
                                                             
-                                                            
+                                                            checkboxInput('mds_labels', 'Labels', TRUE),
                                                             sliderInput("mds_point_size", label = "Point Size", min = 1 , max = 10 , value = 4),
-                                                            sliderInput("mds_point_transparency", label = "Point Transparency", min = 0.1 , max = 1 , value = 0.5),
+                                                            sliderInput("mds_point_transparency", label = "Point Transparency", min = 0.1 , max = 1 , value = 0.5)
                                                             #sliderInput("biplot_vector_transparency", label = "Vector Transparency", min = 0.1 , max = 1 , value = 0.5),
                                                             #sliderInput("biplot_vector_size", label = "Vector Size", min = 1 , max = 5 , value = 1),
                                                             #sliderInput("biplot_vector_treshold", label = "Vector Treshold", min = 0 , max = 0.95 , value = 0),
                                                             #sliderInput("biplot_vector_text_size", label = "Vector Text Size", min = 1 , max = 10 , value =2 ),
-                                                            checkboxInput('mds_labels', 'Labels', TRUE)
+                                                            
                                                             
                                                     ),
                                                     
@@ -423,7 +424,7 @@ shinyUI(
                                                     mainPanel(
                                                             
                                                             #plotOutput("biplot_plot"),
-                                                            plotOutput("mds_plot",
+                                                            plotOutput("mds_plot",width = "800px",height = "600px",
                                                                        dblclick = "mds_dblclick",
                                                                        brush = brushOpts(
                                                                                id = "mds_brush",
@@ -469,15 +470,15 @@ shinyUI(
                                                          tags$br(),
                                                          tags$br(),
                                                          "© Shahin Ashkiani 2017
-                                                                 [August 2017]
-                                                                 Except as permitted by the European copyright law applicable to you, you may not reproduce any of the parts on this website. The files downloadable from this website, unless with proper citation of the applet and its author.
-                                                                 I may change these terms of use from time to time."
+                                                         [August 2017]
+                                                         Except as permitted by the European copyright law applicable to you, you may not reproduce any of the parts on this website. The files downloadable from this website, unless with proper citation of the applet and its author.
+                                                         I may change these terms of use from time to time."
                                                  )
                                                  
                                                  #tags$a(href="www.Shahin-Ashkiani.com", "www.Shahin-Ashkiani.com") 
                                                  
                                                  
-                                         ),
+                                                 ),
                                          
                                          
                                          # Show the caption, a summary of the dataset and an HTML 
@@ -488,8 +489,8 @@ shinyUI(
                                                  #tags$img(src = "https://ibb.co/g3cjzv", width = "100px", height = "100px")
                                                  img(src='Shahin-Shiny-Cartoon.png', width = "700px", height = "500px") 
                                          )
+                                         )
                                  )
-                         )
                 )
                 
                 
