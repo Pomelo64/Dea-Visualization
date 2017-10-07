@@ -821,27 +821,83 @@ shinyServer(function(input, output) {
                 
                 
                 t <- cem_unfolding()
-                row_df <- data.frame(t$conf.row, "DMU" = c(1:nrow(t$conf.row))) 
-                col_df <- data.frame(t$conf.col, "DMU" = c(1:nrow(t$conf.col))) 
+                row_df <- data.frame(t$conf.row, "DMU" = c(1:nrow(t$conf.row)), Type = "Rating", Shape = 19) 
+                col_df <- data.frame(t$conf.col, "DMU" = c(1:nrow(t$conf.col)), Type = "Rated", Shape = 24) 
                 
-                x_min <- min(min(col_df$D1),min(row_df$D1))
-                x_max <- max(max(col_df$D1),max(row_df$D1))
-                y_min <- min(min(col_df$D2),min(row_df$D2))
-                y_max <- max(max(col_df$D2),max(row_df$D2))
-                x_range <- x_max - x_min
-                y_range <- y_max - y_min
+                #print("----")
+                #print("rbind output")
+                #print(head(rbind(row_df,col_df)))
+                #print("rbind class")
+                #print(class(rbind(row_df,col_df)))
+                #print("----")
                 
-                g <- ggplot() + geom_point(data = row_df, aes(x = D1 , y = D2, text = paste("DMU:",DMU)), color = "blue", size = input$cem_row_point_size, shape = 19, alpha = input$cem_row_transparency) + 
-                        geom_point(data = col_df, aes(x = D1 , y = D2), color = "red",size = input$cem_col_point_size, shape = 24, alpha = input$cem_col_transparency) +
-                        coord_fixed(ratio = 1,  expand = TRUE)
+                unfolded_df  <- rbind(row_df,col_df)
+                unfolded_df$alpha = NA
+                unfolded_df$point_size = NA
                 
-                g <- g  + 
-                        coord_cartesian(xlim = cem_ranges$x, ylim = cem_ranges$y, expand = FALSE)
+                #print("-----")
+                #print(head(unfolded_df))
+                #print("------")
+                
+                unfolded_df$alpha[unfolded_df$Type == "Rating"] <-  input$cem_row_transparency
+                unfolded_df$alpha[unfolded_df$Type == "Rated"] <-  input$cem_col_transparency
+                
+                unfolded_df$point_size[unfolded_df$Type == "Rating"] <- input$cem_row_point_size
+                unfolded_df$point_size[unfolded_df$Type == "Rated"] <- input$cem_col_point_size
+                
+                #unfolded_df <-unfolded_df %>% filter(Type == "Rating") %>% mutate(alpha = input$cem_row_transparency, point_size = input$cem_row_point_size)
+                #unfolded_df <-unfolded_df %>% filter(Type == "Rated") %>% mutate(alpha = input$cem_col_transparency, point_size = input$cem_col_point_size)
+                
+                #print("-----")
+                #print(head(unfolded_df))
+                #print("------")
+                
+                total_min <-  min(unfolded_df$D1,unfolded_df$D2)
+                total_max <- max( unfolded_df$D1,unfolded_df$D2)
+                
+                #x_min <- min(min(col_df$D1),min(row_df$D1))
+                #x_max <- max(max(col_df$D1),max(row_df$D1))
+                #y_min <- min(min(col_df$D2),min(row_df$D2))
+                #y_max <- max(max(col_df$D2),max(row_df$D2))
+                #x_range <- x_max - x_min
+                #y_range <- y_max - y_min
+                
+                g<- ggplot(data = unfolded_df) + 
+                        geom_point(aes(x = D1 , y = D2 , 
+                                       color = Type, 
+                                       shape = factor(unfolded_df$Shape) ,
+                                       alpha = unfolded_df$alpha ,
+                                       size = unfolded_df$point_size)
+                        )+ 
+                        scale_alpha(guide = FALSE) +
+                        scale_size(guide = FALSE) + 
+                        scale_size_identity() +
+                        scale_alpha_identity() + 
+                        scale_color_manual(name = "Object Type", values = c("Rating"="blue","Rated"="red"), labels = c("Rating","Rated"))+
+                        scale_shape_manual(name = "Object Type", values = c(19,24), labels = c("Rating","Rated"))+
+                        coord_fixed(ratio = 1,  expand = TRUE) +
+                        ggtitle("Cross-Efficiency Unfolding")
+                
+                #g <- ggplot() + geom_point(data = row_df, aes(x = D1 , y = D2, color = "blue"),
+                #                           size = input$cem_row_point_size,
+                #                           shape = 19,
+                #                           alpha = input$cem_row_transparency) + 
+                #        geom_point(data = col_df, aes(x = D1 , y = D2, color = "red"),
+                #                   size = input$cem_col_point_size,
+                #                   shape = 24,
+                #                   alpha = input$cem_col_transparency) +
+                #        coord_fixed(ratio = 1,  expand = TRUE)
+                
+                
                 g <- g  + theme_linedraw() + annotate("text", x = Inf, y = -Inf, label = "© DEA-Viz",
                                                       hjust=1.1, vjust=-1.1, col="blue", cex=6,
                                                       fontface = "bold", alpha = 0.8) + 
-                        xlim(x_min - 0.05 * x_range , x_max + 0.05 * x_range) +
-                        ylim(y_min - 0.05 * y_range , y_max + 0.05 * y_range ) 
+                        xlim(total_min , total_max) +
+                        ylim(total_min , total_max ) 
+                
+                g <- g  + 
+                        coord_cartesian(xlim = cem_ranges$x, ylim = cem_ranges$y, expand = TRUE)
+                
                 #g
                 g<- switch(EXPR = as.character(input$row_unfolding_labels), 
                            "TRUE" = (g + geom_text_repel(data = row_df, aes(x = D1, y = D2 , label = DMU), color = "skyblue") ),
@@ -923,7 +979,7 @@ shinyServer(function(input, output) {
                                         "VRS" = porembski_vrs)
                 
                 Porembsky_df=data.frame(DMU=1:nrow(t),Porembsky_sammon$points,Efficiency = porembski_eff$eff)
-                Porembsky_df$Shape = as.integer(ifelse(Porembsky_df$Efficiency==1,1,19))
+                Porembsky_df$color = as.character(ifelse(Porembsky_df$Efficiency==1,"Efficient","Inefficient"))
                 Porembsky_df
                 
         })
@@ -965,18 +1021,23 @@ shinyServer(function(input, output) {
                 edges_df <- porembski_edges()
                 points_df <- porembski_points()
                 
-                x_min <- min(points_df$X1)
-                x_max <- max(points_df$X1)
-                y_min <- min(points_df$X2)
-                y_max <- max(points_df$X2)
-                x_range <- x_max - x_min
-                y_range <- y_max - y_min
+                #x_min <- min(points_df$X1)
+                #x_max <- max(points_df$X1)
+                #y_min <- min(points_df$X2)
+                #y_max <- max(points_df$X2)
+                #x_range <- x_max - x_min
+                #y_range <- y_max - y_min
                 
-                #g = ggplot() + geom_point(data = points_df , aes(x = X1 , y = X2))
-                g = ggplot() + geom_point(data = points_df , aes(x = X1 , y = X2),
-                                          shape =points_df$Shape , 
+                total_min <-  min(points_df$X1,points_df$X2)
+                total_max <- max( points_df$X1,points_df$X2)
+                
+                dea_model <- isolate(input$Porembski_dea_model)
+                
+                
+                g = ggplot() + geom_point(data = points_df , aes(x = X1 , y = X2,  color =color ),
                                           size = input$Porembski_point_size,
-                                          alpha = input$Porembski_point_transparency) 
+                                          alpha = input$Porembski_point_transparency) +
+                        scale_color_manual(name = paste("DMU",dea_model,sep = ":"),values = c("Efficient" = "gold", "Inefficient"= "skyblue"))
                 
                 
                 for (index in 1:nrow(edges_df)) {
@@ -985,13 +1046,16 @@ shinyServer(function(input, output) {
                         }
                 }
                 g = g + coord_fixed(ratio = 1,  expand = TRUE)
-                g <- g  + 
-                        coord_cartesian(xlim = Porembski_ranges$x, ylim = Porembski_ranges$y, expand = FALSE)
+                
                 g<- g+ theme_linedraw()  + annotate("text", x = Inf, y = -Inf, label = "© DEA-Viz",
                                                     hjust=1.1, vjust=-1.1, col="blue", cex=6,
                                                     fontface = "bold", alpha = 0.6) + 
-                        xlim(x_min - 0.05 * x_range , x_max + 0.05 * x_range) +
-                        ylim(y_min - 0.05 * y_range , y_max + 0.05 * y_range ) 
+                        xlim(total_min , total_max) +
+                        ylim(total_min , total_max ) +
+                        coord_fixed(ratio = 1) + 
+                        ggtitle("DEA Porembski Graph")
+                g <- g  + 
+                        coord_cartesian(xlim = Porembski_ranges$x, ylim = Porembski_ranges$y, expand = TRUE)
                 
                 #g
                 switch(EXPR = as.character(input$Porembski_labels), 
@@ -1090,14 +1154,15 @@ shinyServer(function(input, output) {
                 #print("z1 of the biplot")
                 #print(head(z1))
                 
-                #x_range <- max(z1$PC1) - min(z1$PC1)
-                #y_range <- max(z1$PC2) - min(z1$PC2)
-                x_min <- min(z1$PC1)
-                x_max <- max(z1$PC1)
-                y_min <- min(z1$PC2)
-                y_max <- max(z1$PC2)
-                x_range <- x_max - x_min
-                y_range <- y_max - y_min
+                total_min <-  min(z1$PC1,z1$PC2)
+                total_max <- max( z1$PC1,z1$PC2)
+                
+                #x_min <- min(z1$PC1)
+                #x_max <- max(z1$PC1)
+                #y_min <- min(z1$PC2)
+                #y_max <- max(z1$PC2)
+                #x_range <- x_max - x_min
+                #y_range <- y_max - y_min
                 
                 
                 g <- switch(EXPR = input$biplot_dea_model,
@@ -1120,14 +1185,18 @@ shinyServer(function(input, output) {
                 #        geom_segment(data=z2, aes(PC1*input$biplot_vector_size, PC2*input$biplot_vector_size, xend=0, yend=0), col="red",alpha = input$biplot_vector_transparency ) +
                 #        geom_text(data=z2 , aes(x = PC1*input$biplot_vector_size,y =  PC2*input$biplot_vector_size, label = Variables ), col="red", alpha = input$biplot_vector_transparency, size = input$biplot_vector_text_size ) 
                 
-                g <- g  + 
-                        coord_cartesian(xlim = ranges$x, ylim = ranges$y, expand = FALSE)
+                
                 
                 g<- g+ theme_linedraw()  + annotate("text", x = Inf, y = -Inf, label = "© DEA-Viz",
                                                     hjust=1.1, vjust=-1.1, col="blue", cex=6,
                                                     fontface = "bold", alpha = 0.4) +
-                        xlim(x_min - 0.05 * x_range , x_max + 0.05 * x_range) +
-                        ylim(y_min - 0.05 * y_range , y_max + 0.05 * y_range ) 
+                        xlim(total_min, total_max) +
+                        ylim(total_min, total_max) +
+                        coord_fixed(ratio = 1) + 
+                        ggtitle("DEA PCA Biplot")
+                
+                g <- g  + 
+                        coord_cartesian(xlim = ranges$x, ylim = ranges$y, expand = TRUE)
                 
                 switch(EXPR = as.character(input$biplot_labels), 
                        "TRUE" = (g + geom_text_repel(data = z1, aes(x = PC1, y = PC2 , label = DMU), color = "blue") ),
@@ -1369,12 +1438,15 @@ shinyServer(function(input, output) {
                 
                 t <- Costa_df()
                 
-                x_min <- min(t$I)
-                x_max <- max(t$I)
-                y_min <- min(t$O)
-                y_max <- max(t$O)
-                x_range <- x_max - x_min
-                y_range <- y_max - y_min
+                #x_min <- min(t$I)
+                #x_max <- max(t$I)
+                #y_min <- min(t$O)
+                #y_max <- max(t$O)
+                #x_range <- x_max - x_min
+                #y_range <- y_max - y_min
+                
+                total_min <-  min(t$I,t$O)
+                total_max <- max(t$I,t$O)
                 
                 g = ggplot() +
                         geom_point(data = t, aes(x = I , y = O, colour = efficiency_binary ), 
@@ -1387,13 +1459,17 @@ shinyServer(function(input, output) {
                 g = g + geom_abline(xintercept = 0 , yintercept = 0 , slope = 1, color = "red")
                 g = g + coord_fixed(ratio = 1,  expand = TRUE) 
                 
-                g<- g + coord_cartesian(xlim = Costa_ranges$x, ylim = Costa_ranges$y, expand = FALSE)
+                
                 
                 g<- g+ theme_linedraw()  + annotate("text", x = Inf, y = -Inf, label = "© DEA-Viz",
                                                     hjust=1.1, vjust=-1.1, col="blue", cex=6,
                                                     fontface = "bold", alpha = 0.5) +
-                        xlim(x_min - 0.05 * x_range , x_max + 0.05 * x_range) +
-                        ylim(y_min - 0.05 * y_range , y_max + 0.05 * y_range ) 
+                        xlim(total_min , total_max) +
+                        ylim(total_min , total_max) +
+                        coord_fixed(ratio = 1) + 
+                        ggtitle("DEA Costa Frontier")
+                
+                g<- g + coord_cartesian(xlim = Costa_ranges$x, ylim = Costa_ranges$y, expand = TRUE)
                 #g
                 switch(EXPR = as.character(input$Costa_labels), 
                        "TRUE" = (g + geom_text_repel(data = t, aes(x = I, y = O , label = 1:nrow(t)), color = "blue") ),
@@ -1432,8 +1508,9 @@ shinyServer(function(input, output) {
                 head(Costa_df())
                 #biplot_data()
                 #
-        })
-        
+        }) 
+        #####
+        # MDS Plots 
         #####
         # MDS Plots 
         
@@ -1594,12 +1671,15 @@ shinyServer(function(input, output) {
                 final_dataset <- final_dataset_to_visualize()[[2]]
                 index <- final_dataset_to_visualize()[[1]]
                 
-                x_min <- min(final_dataset$D1)
-                x_max <- max(final_dataset$D1)
-                y_min <- min(final_dataset$D2)
-                y_max <- max(final_dataset$D2)
-                x_range <- x_max - x_min
-                y_range <- y_max - y_min
+                total_min <-  min(final_dataset$D1,final_dataset$D2)
+                total_max <- max( final_dataset$D1,final_dataset$D2)
+                
+                #x_min <- min(final_dataset$D1,final_dataset$D2)
+                #x_max <- max(final_dataset$D1,final_dataset$D2)
+                #y_min <- min(final_dataset$D2)
+                #y_max <- max(final_dataset$D2)
+                #x_range <- x_max - x_min
+                #y_range <- y_max - y_min
                 
                 g<- ggplot(data = final_dataset) + 
                         geom_point(aes(D1,D2, color = final_dataset[,index]),
@@ -1609,13 +1689,22 @@ shinyServer(function(input, output) {
                         ) +
                         scale_colour_gradient(low = "blue", high = "red", name = colnames(final_dataset)[index] )
                 
-                g <- g  + coord_cartesian(xlim = mds_ranges$x, ylim = mds_ranges$y, expand = FALSE)
+                
                 
                 g<- g+ theme_linedraw()  + annotate("text", x = Inf, y = -Inf, label = "© DEA-Viz",
                                                     hjust=1.1, vjust=-1.1, col="blue", cex=6,
-                                                    fontface = "bold", alpha = 0.5) +
-                        xlim(x_min - 0.05 * x_range , x_max + 0.05 * x_range) +
-                        ylim(y_min - 0.05 * y_range , y_max + 0.05 * y_range ) 
+                                                    fontface = "bold", alpha = 0.4) +
+                        
+                        
+                        xlim(total_min, total_max) +
+                        ylim(total_min,total_max) +
+                        coord_fixed(ratio = 1) + 
+                        #xlim(x_min - 0.05 * x_range , x_max + 0.05 * x_range) +
+                        #ylim(y_min - 0.05 * y_range , y_max + 0.05 * y_range ) + 
+                        ggtitle(paste("MDS Color-Plot of",colnames(final_dataset)[index], sep = " ")) 
+                
+                g <- g  + coord_cartesian(xlim = mds_ranges$x, ylim = mds_ranges$y, expand = TRUE) 
+                
                 
                 #g
                 switch(EXPR = as.character(input$mds_labels), 
