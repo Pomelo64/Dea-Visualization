@@ -122,7 +122,8 @@ shinyUI(
                                                             sliderInput("cem_row_transparency", label = "Row Objects Transparency", min = 0.1 , max = 1 , value = 0.5),
                                                             sliderInput("cem_col_transparency", label = "Col Objects Transparency", min = 0.1 , max = 1 , value = 0.5),
                                                             
-                                                            checkboxInput('cem_unfolding_labels', 'Labels', TRUE)
+                                                            checkboxInput('row_unfolding_labels', 'Row Object Labels', TRUE),
+                                                            checkboxInput('col_unfolding_labels', 'Col Object Labels', FALSE)
                                                             
                                                             
                                                             

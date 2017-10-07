@@ -7,9 +7,12 @@ library(smacof)
 library(devtools)
 library(ggplot2)
 library(kohonen)
+library(ggrepel)
 
 
 # 17 August 10am ---> rectifying xlim ylim. Now all the points are seen clearly
+# 17 August  ------> experiment on Costa frontier to figure out the best combination of shape and color, also to add legend 
+# 17 August ----> ggrepel added to rectify the problem of overlapping texts 
 
 set.seed(7)
 #####
@@ -829,7 +832,7 @@ shinyServer(function(input, output) {
                 y_range <- y_max - y_min
                 
                 g <- ggplot() + geom_point(data = row_df, aes(x = D1 , y = D2, text = paste("DMU:",DMU)), color = "blue", size = input$cem_row_point_size, shape = 19, alpha = input$cem_row_transparency) + 
-                        geom_point(data = col_df, aes(x = D1 , y = D2, text = paste("DMU:",DMU)), color = "red",size = input$cem_col_point_size, shape = 24, alpha = input$cem_col_transparency) +
+                        geom_point(data = col_df, aes(x = D1 , y = D2), color = "red",size = input$cem_col_point_size, shape = 24, alpha = input$cem_col_transparency) +
                         coord_fixed(ratio = 1,  expand = TRUE)
                 
                 g <- g  + 
@@ -840,11 +843,17 @@ shinyServer(function(input, output) {
                         xlim(x_min - 0.05 * x_range , x_max + 0.05 * x_range) +
                         ylim(y_min - 0.05 * y_range , y_max + 0.05 * y_range ) 
                 #g
-                switch(EXPR = as.character(input$cem_unfolding_labels), 
-                       "TRUE" = (g + geom_text(data = row_df, aes(x = D1, y = D2 , label = DMU), color = "orange") ),
-                       "FALSE" = g 
+                g<- switch(EXPR = as.character(input$row_unfolding_labels), 
+                           "TRUE" = (g + geom_text_repel(data = row_df, aes(x = D1, y = D2 , label = DMU), color = "skyblue") ),
+                           "FALSE" = g 
                 )
                 
+                g<- switch(EXPR = as.character(input$col_unfolding_labels), 
+                           "TRUE" = (g + geom_text_repel(data = col_df, aes(x = D1, y = D2 , label = DMU), color = "orange") ),
+                           "FALSE" = g 
+                )
+                
+                g
         })
         
         
@@ -964,7 +973,10 @@ shinyServer(function(input, output) {
                 y_range <- y_max - y_min
                 
                 #g = ggplot() + geom_point(data = points_df , aes(x = X1 , y = X2))
-                g = ggplot() + geom_point(data = points_df , aes(x = X1 , y = X2),shape =points_df$Shape , size = input$Porembski_point_size, alpha = input$Porembski_point_transparency) 
+                g = ggplot() + geom_point(data = points_df , aes(x = X1 , y = X2),
+                                          shape =points_df$Shape , 
+                                          size = input$Porembski_point_size,
+                                          alpha = input$Porembski_point_transparency) 
                 
                 
                 for (index in 1:nrow(edges_df)) {
@@ -983,7 +995,7 @@ shinyServer(function(input, output) {
                 
                 #g
                 switch(EXPR = as.character(input$Porembski_labels), 
-                       "TRUE" = (g + geom_text(data = points_df, aes(x = X1, y = X2 , label = DMU), color = "blue") ),
+                       "TRUE" = (g + geom_text_repel(data = points_df, aes(x = X1, y = X2 , label = DMU), color = "blue") ),
                        "FALSE" = g 
                 )
                 
@@ -1062,11 +1074,11 @@ shinyServer(function(input, output) {
                 
                 
                 
-                z1 <- data.frame(DMU = 1:nrow(data), x$x[, 1:2], crs_shape = NA , vrs_shape = NA)
-                z1$crs_shape <- ifelse(test = supp$crs_efficiency ==1 , 1, 19)
+                z1 <- data.frame(DMU = 1:nrow(data), x$x[, 1:2], crs_color = NA , vrs_color = NA)
+                z1$crs_color <- ifelse(test = supp$crs_efficiency ==1 , "Efficient", "Inefficient")
                 #print("crs shapes of biplot")
                 #print(z1$crs_shape)
-                z1$vrs_shape <- ifelse(test = supp$vrs_efficiency ==1 , 1, 19)
+                z1$vrs_color <- ifelse(test = supp$vrs_efficiency ==1 , "Efficient", "Inefficient")
                 #print("vrs shapes of biplot")
                 #print(z1$vrs_shape)
                 #z1$shape <- switch(EXPR = input$biplot_dea_model, 
@@ -1090,14 +1102,16 @@ shinyServer(function(input, output) {
                 
                 g <- switch(EXPR = input$biplot_dea_model,
                             "CRS" = ggplot(z1, aes(x = PC1,y = PC2)) + 
-                                    geom_point( size=input$biplot_point_size, alpha = input$biplot_point_transparency ,shape = z1$crs_shape) +
+                                    geom_point(aes(color = z1$crs_color) ,size=input$biplot_point_size, alpha = input$biplot_point_transparency ) +
+                                    scale_colour_manual(name = "DMU: CRS Eff.", values =  c("Efficient"="gold" , "Inefficient"="skyblue")) + 
                                     geom_segment(data=z2, aes(PC1*input$biplot_vector_size, PC2*input$biplot_vector_size, xend=0, yend=0), col="red",alpha = input$biplot_vector_transparency ) +
-                                    geom_text(data=z2 , aes(x = PC1*input$biplot_vector_size,y =  PC2*input$biplot_vector_size, label = Variables ), col="red", alpha = input$biplot_vector_transparency, size = input$biplot_vector_text_size )  , 
+                                    geom_text_repel(data=z2 , aes(x = PC1*input$biplot_vector_size,y =  PC2*input$biplot_vector_size, label = Variables ), col="red", alpha = input$biplot_vector_transparency, size = input$biplot_vector_text_size )  , 
                             
                             "VRS" =  ggplot(z1, aes(x = PC1,y = PC2)) + 
-                                    geom_point( size=input$biplot_point_size, alpha = input$biplot_point_transparency, shape = z1$vrs_shape) +
+                                    geom_point(aes(color = z1$vrs_color) ,size=input$biplot_point_size, alpha = input$biplot_point_transparency) +
+                                    scale_colour_manual(name = "DMU: VRS Eff.", values =  c("Efficient"="gold" , "Inefficient"="skyblue")) + 
                                     geom_segment(data=z2, aes(PC1*input$biplot_vector_size, PC2*input$biplot_vector_size, xend=0, yend=0), col="red",alpha = input$biplot_vector_transparency ) +
-                                    geom_text(data=z2 , aes(x = PC1*input$biplot_vector_size,y =  PC2*input$biplot_vector_size, label = Variables ), col="red", alpha = input$biplot_vector_transparency, size = input$biplot_vector_text_size ) 
+                                    geom_text_repel(data=z2 , aes(x = PC1*input$biplot_vector_size,y =  PC2*input$biplot_vector_size, label = Variables ), col="red", alpha = input$biplot_vector_transparency, size = input$biplot_vector_text_size ) 
                             
                 )
                 
@@ -1116,7 +1130,7 @@ shinyServer(function(input, output) {
                         ylim(y_min - 0.05 * y_range , y_max + 0.05 * y_range ) 
                 
                 switch(EXPR = as.character(input$biplot_labels), 
-                       "TRUE" = (g + geom_text(data = z1, aes(x = PC1, y = PC2 , label = DMU), color = "blue") ),
+                       "TRUE" = (g + geom_text_repel(data = z1, aes(x = PC1, y = PC2 , label = DMU), color = "blue") ),
                        "FALSE" = g 
                 )
                 
@@ -1363,11 +1377,12 @@ shinyServer(function(input, output) {
                 y_range <- y_max - y_min
                 
                 g = ggplot() +
-                        geom_point(data = t, aes(x = I , y = O, shape = factor(efficiency_binary), colour = efficiency ), 
+                        geom_point(data = t, aes(x = I , y = O, colour = efficiency_binary ), 
                                    size = input$Costa_point_size , 
                                    alpha = input$Costa_point_transparency) + 
                         scale_colour_gradient(low = "red", high = "green") +
-                        scale_shape_manual(values = c(17,16))
+                        #scale_shape_manual(values = c(17,16))
+                        scale_colour_manual(name = "DMU Color",values = c("Efficient"="gold","Inefficient" = "skyblue"))
                 
                 g = g + geom_abline(xintercept = 0 , yintercept = 0 , slope = 1, color = "red")
                 g = g + coord_fixed(ratio = 1,  expand = TRUE) 
@@ -1381,7 +1396,7 @@ shinyServer(function(input, output) {
                         ylim(y_min - 0.05 * y_range , y_max + 0.05 * y_range ) 
                 #g
                 switch(EXPR = as.character(input$Costa_labels), 
-                       "TRUE" = (g + geom_text(data = t, aes(x = I, y = O , label = 1:nrow(t)), color = "blue") ),
+                       "TRUE" = (g + geom_text_repel(data = t, aes(x = I, y = O , label = 1:nrow(t)), color = "blue") ),
                        "FALSE" = g 
                 )
         })
@@ -1592,7 +1607,7 @@ shinyServer(function(input, output) {
                                    size = input$mds_point_size,
                                    alpha = input$mds_point_transparency
                         ) +
-                        scale_colour_gradient(low = "blue", high = "red")
+                        scale_colour_gradient(low = "blue", high = "red", name = colnames(final_dataset)[index] )
                 
                 g <- g  + coord_cartesian(xlim = mds_ranges$x, ylim = mds_ranges$y, expand = FALSE)
                 
@@ -1604,7 +1619,7 @@ shinyServer(function(input, output) {
                 
                 #g
                 switch(EXPR = as.character(input$mds_labels), 
-                       "TRUE" = (g + geom_text(data = final_dataset, aes(x = D1, y = D2 , label = 1:nrow(final_dataset)), color = "blue") ),
+                       "TRUE" = (g + geom_text_repel(data = final_dataset, aes(x = D1, y = D2 , label = 1:nrow(final_dataset)), color = "blue") ),
                        "FALSE" = g 
                 )
                 
