@@ -13,9 +13,11 @@ library(gridExtra)
 library(RColorBrewer)
 library(PerformanceAnalytics) # for correlation plot
 library(corrplot) # for correlation plot
+library(shinyBS)
 #library(shinyjs)
 options(expressions = 500000)
 
+# just for commit
 # 17 August 10am ---> rectifying xlim ylim. Now all the points are seen clearly
 # 17 August  ------> experiment on Costa frontier to figure out the best combination of shape and color, also to add legend 
 # 17 August ----> ggrepel added to rectify the problem of overlapping texts 
@@ -75,7 +77,7 @@ vrs_eff <- function(dataset, num_of_inputs, orientation = "in"){
 # Shiny Main Body
 #####
 shinyServer(function(input, output) {
-        
+        options(scipen=999)
         ##### 
         ##First reactive expression of the uploaded file 
         #to make the uploaded file a reactive expression
@@ -159,6 +161,10 @@ shinyServer(function(input, output) {
                 
                 
                 
+        })
+        
+        output$data_upload_help <- renderText({
+                ("You should upload a .CSV file, with the inputs on the write hand side of the plot")
         })
         
         #for rendering reactive table of outputs    
@@ -259,6 +265,16 @@ shinyServer(function(input, output) {
                 # indeed, the summation of the VIs is not equal to one! 
                 # so it means the formulation that dea() is using is not the one that I need
                 
+                #---debug
+                #print("head")
+                #print(head(dataset))
+                #print("dim")
+                #print(dim(dataset))
+                #print("dmu28")
+                #print(dataset[28,])
+                #----
+                
+                
                 number_of_units = nrow(dataset)
                 number_of_inputs = number_of_inputs
                 number_of_outputs = ncol(dataset)- number_of_inputs
@@ -329,8 +345,14 @@ shinyServer(function(input, output) {
                 
                 colnames(weight_mat) <- c(Output_weights_colnames,Input_weights_colnames)
                 
+                # ----- using dea()
+                bench_model <- dea(X = dataset[,1:number_of_inputs],Y = dataset[,(number_of_inputs+1):number_of_variables] , RTS = "crs", DUAL = TRUE )
+                bench_scores <- bench_model$eff 
+                bench_weights <- cbind(bench_model$vy, bench_model$ux)
+                #print("bench scores")
+                #print(bench_scores)
                 #eff_weight_list = list(eff_scores, weight_mat)
-                eff_weight_list = list(eff_scores, weight_mat, lprec_eff_scores, lprec_opt_weights)
+                eff_weight_list = list(eff_scores, weight_mat, lprec_eff_scores, lprec_opt_weights,bench_scores,bench_weights)
                 
                 return(eff_weight_list)
                 
@@ -349,14 +371,19 @@ shinyServer(function(input, output) {
                 number_of_units = nrow(dataset)
                 number_of_inputs = number_of_inputs
                 number_of_outputs = ncol(dataset)- number_of_inputs
+                number_of_variables <- ncol(dataset)
                 
                 number_of_variables = ncol(dataset)
                 
                 
-                eff_weight_list <- dea_4cem(dataset = dataset, number_of_inputs = number_of_inputs)
-                #4th or 2nd component of dea_4cem? 
-                eff_weight_mat <- eff_weight_list[[2]]
-                simple_eff <- eff_weight_list[[1]]
+                #eff_weight_list <- dea_4cem(dataset = dataset, number_of_inputs = number_of_inputs)
+                ##4th or 2nd component of dea_4cem? 
+                #eff_weight_mat <- eff_weight_list[[2]]
+                #simple_eff <- eff_weight_list[[1]]
+                
+                bench_model <- dea(X = dataset[,1:number_of_inputs],Y = dataset[,(number_of_inputs+1):number_of_variables] , RTS = "crs", DUAL = TRUE )
+                simple_eff <- bench_model$eff 
+                eff_weight_mat <- cbind(bench_model$vy, bench_model$ux)
                 
                 
                 #simple_eff = eff_weight_mat[,1]
@@ -416,6 +443,7 @@ shinyServer(function(input, output) {
                 }
                 
                 #return(t$solution)
+                
                 return(cem_weight)
         }
         
@@ -486,7 +514,8 @@ shinyServer(function(input, output) {
                 #print(identical(round(CEM,4),round(cem_matrix_multiplication,4)))
                 #print(sum(round(CEM,4)==round(cem_matrix_multiplication,4))) 
                 #print("-----")
-                print(diag(CEM))
+                
+                #print(diag(CEM))
                 return(CEM)
                 
         }
@@ -498,12 +527,21 @@ shinyServer(function(input, output) {
                 number_of_units = nrow(dataset)
                 
                 number_of_outputs = ncol(dataset)-number_of_inputs
-                number_of_factors = ncol(dataset)
+                #number_of_factors = ncol(dataset)
                 
-                eff_weight_list <- dea_4cem(dataset = dataset, number_of_inputs = number_of_inputs)
-                eff_weight_mat <- eff_weight_list[[4]]
+                number_of_variables <- ncol(dataset)
                 
-                CEM_opt_weights = matrix(nrow = number_of_units, ncol = number_of_factors )
+                #eff_weight_list <- dea_4cem(dataset = dataset, number_of_inputs = number_of_inputs)
+                #eff_weight_mat <- eff_weight_list[[4]]
+                
+                
+                bench_model <- dea(X = dataset[,1:number_of_inputs],Y = dataset[,(number_of_inputs+1):number_of_variables] , RTS = "crs", DUAL = TRUE )
+                #simple_eff <- bench_model$eff 
+                eff_weight_mat <- cbind(bench_model$vy, bench_model$ux)
+                
+                
+                
+                CEM_opt_weights = matrix(nrow = number_of_units, ncol = number_of_variables )
                 
                 
                 # max normalization for getting reasonable weights scale 
@@ -522,8 +560,8 @@ shinyServer(function(input, output) {
                 }
                 
                 
-                factor_labels = vector(length = number_of_factors)
-                factor_labels = c(colnames(dataset[,(number_of_inputs+1):number_of_factors]),
+                factor_labels = vector(length = number_of_variables)
+                factor_labels = c(colnames(dataset[,(number_of_inputs+1):number_of_variables]),
                                   colnames(dataset[,1:number_of_inputs]))
                 
                 factor_labels <- paste(factor_labels,"Weight",sep = " ")
@@ -557,7 +595,7 @@ shinyServer(function(input, output) {
                         
                         standardized_outputs <- weight_dataset[,1:number_of_outputs]/weight_dataset[,1:number_of_outputs]
                         standardized_outputs <- as.matrix(standardized_outputs)
-                        colnames(standardized_outputs) <- colnames(weight_dataset)[,1:number_of_outputs]
+                        colnames(standardized_outputs) <- colnames(weight_dataset)[1:number_of_outputs]
                 }
                 
                 #input weights standardization
@@ -575,7 +613,7 @@ shinyServer(function(input, output) {
                                 weight_dataset[,(number_of_outputs+1):number_of_variables]
                         
                         standardized_inputs <- as.matrix(standardized_inputs)
-                        colnames(standardized_inputs) <- colnames(weight_dataset)[,(number_of_outputs+1):number_of_variables]
+                        colnames(standardized_inputs) <- colnames(weight_dataset)[(number_of_outputs+1):number_of_variables]
                 }
                 
                 standardized_weights_list <- list(round(standardized_inputs,5),round(standardized_outputs,5))
@@ -763,31 +801,66 @@ shinyServer(function(input, output) {
                 
                 dataset <- input_weights_dotplot_dataset()
                 
+                dataset <- as.data.frame(dataset)
+                
                 color <- rep("Others",nrow(dataset))
                 #if (input$cem_dotplot_dmu_selection != "None") {color[as.numeric(input$cem_dotplot_dmu_selection)] <- "Selected"}
                 if (input$cem_dotplot_dmu_selection != "None") {color[which(dmu_names==input$cem_dotplot_dmu_selection)] <- "Selected"}
+                
                 
                 dataset$color <- as.factor(color)
                 
                 # for removing legend when there is no selected DMU
                 if (input$cem_dotplot_dmu_selection == "None" ) {
-                        all_plots <- lapply(X = 1:(ncol(dataset)-1), function(x) ggplot()+
-                                                    geom_dotplot(data = dataset, aes(x = dataset[,x],fill = color) , alpha = 0.6)+ 
-                                                    theme_linedraw()+
-                                                    xlab(colnames(dataset)[x]) +  
-                                                    scale_fill_manual(name = "DMUs", values =  c("Others"="blue" , "Selected"="orange")) +
-                                                    guides(fill = FALSE )
-                                            
-                        )
+                        if (ncol(dataset)==2) {
+                                all_plots <- list( ggplot()+
+                                                           geom_dotplot(data = dataset, aes(x = dataset[,1],fill = color) , alpha = 0.6)+ 
+                                                           theme_linedraw()+
+                                                           xlab(colnames(dataset)[1]) +  
+                                                           scale_fill_manual(name = "DMUs", values =  c("Others"="blue" , "Selected"="orange")) +
+                                                           guides(fill = FALSE ) +
+                                                           xlim(0,1)
+                                                   
+                                )
+                                
+                        } else {
+                                all_plots <- lapply(X = 1:(ncol(dataset)-1), function(x) ggplot()+
+                                                            geom_dotplot(data = dataset, aes(x = dataset[,x],fill = color) , alpha = 0.6)+ 
+                                                            theme_linedraw()+
+                                                            xlab(colnames(dataset)[x]) +  
+                                                            scale_fill_manual(name = "DMUs", values =  c("Others"="blue" , "Selected"="orange")) +
+                                                            guides(fill = FALSE ) +
+                                                            xlim(0,1)
+                                                    
+                                )
+                                
+                        }
+                        
+                        
                         
                 } else {
-                        all_plots <- lapply(X = 1:(ncol(dataset)-1), function(x) ggplot()+
-                                                    geom_dotplot(data = dataset, aes(x = dataset[,x],fill = color) , alpha = 0.6)+ 
-                                                    theme_linedraw()+
-                                                    xlab(colnames(dataset)[x]) +  
-                                                    scale_fill_manual(name = "DMUs", values =  c("Others"="blue" , "Selected"="orange")) 
-                                            
-                        )
+                        if (ncol(dataset)==2) {
+                                all_plots <- list(ggplot()+
+                                                          geom_dotplot(data = dataset, aes(x = dataset[,1],fill = color) , alpha = 0.6)+ 
+                                                          theme_linedraw()+
+                                                          xlab(colnames(dataset)[1]) +  
+                                                          scale_fill_manual(name = "DMUs", values =  c("Others"="blue" , "Selected"="orange"))+
+                                                          xlim(0,1)
+                                                  
+                                )
+                                
+                        } else {
+                                all_plots <- lapply(X = 1:(ncol(dataset)-1), function(x) ggplot()+
+                                                            geom_dotplot(data = dataset, aes(x = dataset[,x],fill = color) , alpha = 0.6)+ 
+                                                            theme_linedraw()+
+                                                            xlab(colnames(dataset)[x]) +  
+                                                            scale_fill_manual(name = "DMUs", values =  c("Others"="blue" , "Selected"="orange"))+
+                                                            xlim(0,1)
+                                                    
+                                )
+                                
+                        }
+                        
                         
                 }
                 
@@ -830,29 +903,78 @@ shinyServer(function(input, output) {
                 
                 dataset <- output_weights_dotplot_dataset()
                 
+                #--- debug
+                #print("dim of dataset in output weight plot")
+                #print(dim(dataset))
+                #print(class(dataset))
+                #---- debug 
+                
+                
+                dataset <- as.data.frame(dataset)
+                
+                
                 color <- rep("Others",nrow(dataset))
                 if (input$cem_dotplot_dmu_selection != "None") {color[as.numeric(input$cem_dotplot_dmu_selection)] <- "Selected"}
                 dataset$color <- as.factor(color)
                 
+                #--- debug
+                #print("dim of dataset in output weight plot, after color")
+                #print(dim(dataset))
+                #print(class(dataset))
+                #print(dataset$color)
+                #---- debug 
+                
+                
                 # for removing legend when there is no selected DMU
                 if (input$cem_dotplot_dmu_selection == "None" ) {
-                        all_plots <- lapply(X = 1:(ncol(dataset)-1), function(x) ggplot()+
-                                                    geom_dotplot(data = dataset, aes(x = dataset[,x],fill = color) , alpha = 0.6)+ 
-                                                    theme_linedraw()+
-                                                    xlab(colnames(dataset)[x]) +  
-                                                    scale_fill_manual(name = "DMUs", values =  c("Others"="blue" , "Selected"="orange")) +
-                                                    guides(fill = FALSE )
-                                            
-                        )
+                        if (ncol(dataset)==2) {
+                                all_plots <-  list(ggplot()+
+                                                           geom_dotplot(data = dataset, aes(x = dataset[,1],fill = color) , alpha = 0.6)+ 
+                                                           theme_linedraw()+
+                                                           xlab(colnames(dataset)[1]) +  
+                                                           scale_fill_manual(name = "DMUs", values =  c("Others"="blue" , "Selected"="orange")) +
+                                                           guides(fill = FALSE ) + 
+                                                           xlim(0,1)
+                                ) 
+                                #scale_x_continuous(limits = c(0, 1))
+                                
+                        } else {
+                                all_plots <- lapply(X = 1:(ncol(dataset)-1), function(x) ggplot()+
+                                                            geom_dotplot(data = dataset, aes(x = dataset[,x],fill = color) , alpha = 0.6)+ 
+                                                            theme_linedraw()+
+                                                            xlab(colnames(dataset)[x]) +  
+                                                            scale_fill_manual(name = "DMUs", values =  c("Others"="blue" , "Selected"="orange")) +
+                                                            guides(fill = FALSE )+
+                                                            xlim(0,1)
+                                                    
+                                )
+                                
+                        }
+                        
                         
                 } else {
-                        all_plots <- lapply(X = 1:(ncol(dataset)-1), function(x) ggplot()+
-                                                    geom_dotplot(data = dataset, aes(x = dataset[,x],fill = color) , alpha = 0.6)+ 
-                                                    theme_linedraw()+
-                                                    xlab(colnames(dataset)[x]) +  
-                                                    scale_fill_manual(name = "DMUs", values =  c("Others"="blue" , "Selected"="orange")) 
-                                            
-                        )
+                        if (ncol(dataset)==2) {
+                                all_plots <-  list(ggplot()+
+                                                           geom_dotplot(data = dataset, aes(x = dataset[,1],fill = color) , alpha = 0.6)+ 
+                                                           theme_linedraw()+
+                                                           xlab(colnames(dataset)[1]) +  
+                                                           scale_fill_manual(name = "DMUs", values =  c("Others"="blue" , "Selected"="orange"))+
+                                                           xlim(0,1)
+                                )
+                                
+                                
+                        } else {
+                                all_plots <- lapply(X = 1:(ncol(dataset)-1), function(x) ggplot()+
+                                                            geom_dotplot(data = dataset, aes(x = dataset[,x],fill = color) , alpha = 0.6)+ 
+                                                            theme_linedraw()+
+                                                            xlab(colnames(dataset)[x]) +  
+                                                            scale_fill_manual(name = "DMUs", values =  c("Others"="blue" , "Selected"="orange"))+
+                                                            xlim(0,1)
+                                                    
+                                )
+                                
+                        }
+                        
                         
                 }
                 
@@ -2209,8 +2331,7 @@ shinyServer(function(input, output) {
         
         output$correlation_plot <- renderPlot({
                 dataset <- correlation_data() 
-                #print("dataset is here")
-                #print(class(dataset))
+                
                 
                 if (isolate(input$correlation_dataset) == "Variables without Efficiency Scores") {
                         corr_data <- dataset[[1]]
@@ -2242,11 +2363,46 @@ shinyServer(function(input, output) {
                         chart.Correlation(corr_data, histogram=TRUE, pch=19) 
                 }
                 
-                
-                
-                
-                
         })
+        
+        output$download_correlation <- downloadHandler(
+                filename = "correlation_plot.png",
+                content = function(file) {
+                        
+                        dataset <- correlation_data() 
+                        if (isolate(input$correlation_dataset) == "Variables without Efficiency Scores") {
+                                corr_data <- dataset[[1]]
+                        } else if ((isolate(input$correlation_dataset) == "Variables with CRS Efficiency")) {
+                                corr_data <- cbind(dataset[[1]],CRS = dataset[[2]][,1])
+                        } else if ((isolate(input$correlation_dataset) == "Variables with VRS Efficiency")) {
+                                corr_data <- cbind(dataset[[1]],VRS = dataset[[2]][,2])
+                        } else if ((isolate(input$correlation_dataset) == "Variables with FDH Efficiency")) {
+                                corr_data <- cbind(dataset[[1]],FDH = dataset[[2]][,3])
+                        } else if ((isolate(input$correlation_dataset) == "Variables with DRS Efficiency")) {
+                                corr_data <- cbind(dataset[[1]],DRS = dataset[[2]][,4])
+                        } else if ((isolate(input$correlation_dataset) == "Variables with IRS Efficiency")) {
+                                corr_data <- cbind(dataset[[1]],IRS = dataset[[2]][,5])
+                        } else if ((isolate(input$correlation_dataset) == "Variables with ADD Efficiency")) {
+                                corr_data <- cbind(dataset[[1]],ADD = dataset[[2]][,6])
+                        }
+                        
+                        
+                        if (isolate(input$correlation_package) == "CorrPlot") {
+                                png(file)
+                                corrplot(cor(as.matrix(corr_data)), order = "original", tl.col = "black", tl.srt = 45,type = "lower")
+                                dev.off()
+                                #ggsave(file,plot =  corrplot(cor(as.matrix(corr_data)), order = "original", tl.col = "black", tl.srt = 45,type = "lower"),device = "png", dpi = 450)
+                        } else if (isolate(input$correlation_package) == "HeatMap") {
+                                col<- colorRampPalette(c("blue", "white", "red"))(20)
+                                #ggsave(file, plot = heatmap(x = cor(x =as.matrix(corr_data) ) , col = col, symm = TRUE),device = "png", dpi = 450)
+                                png(file)
+                                heatmap(x = cor(x =as.matrix(corr_data)) , col = col, symm = TRUE)
+                                dev.off()
+                        } else {
+                                ggsave(file,chart.Correlation(corr_data, histogram=TRUE, pch=19),device = "png", width = 4 , height = 4 , units = "in")
+                        }
+                }
+        )
         
         
         

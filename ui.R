@@ -25,6 +25,12 @@ shinyUI(
                                                           "and the outputs are at the right-most columns of the dataset.",
                                                           "In the right side panel it is possible to check the format ",
                                                           "of the dataset."), 
+                                                 
+                                                 bsButton("upload_data_help_button", label = "", icon = icon("question"),
+                                                          style = "info", size = "extra-small"),
+                                                 
+                                                 
+                                                 
                                                  tags$hr(),
                                                  
                                                  fileInput('factors_datafile', 'Upload the I&O Dataset',
@@ -63,7 +69,11 @@ shinyUI(
                                                           "inputs are separated correctly from outputs,",
                                                           "then press the submit button."),
                                                  
-                                                 actionButton("submit_button","Submit")
+                                                 actionButton("submit_button","Submit") 
+                                                 
+                                                 
+                                                 
+                                                 
                                          ),
                                          
                                          
@@ -78,7 +88,13 @@ shinyUI(
                                                  tableOutput("inputs_table"),
                                                  
                                                  h4("Outputs Factors"),
-                                                 tableOutput("outputs_table")
+                                                 tableOutput("outputs_table"),
+                                                 
+                                                 bsModal(id = "upload_modal", "Upload Help", "upload_data_help_button", size = "large",
+                                                         textOutput("data_upload_help"))
+                                                 
+                                                 
+                                                 
                                                  
                                                  
                                          )
@@ -175,7 +191,8 @@ shinyUI(
                                                                          )),
                                                             radioButtons("correlation_package",label = "Correlation Package", choices = list("CorrPlot","HeatMap","Performance Analytics")),
                                                             
-                                                            actionButton("correlation_button","Plot") 
+                                                            actionButton("correlation_button","Plot")
+                                                            
                                                             
                                                             
                                                     ),
@@ -345,7 +362,7 @@ shinyUI(
                                                             checkboxInput('Porembski_labels', 'Labels', FALSE),
                                                             sliderInput("Porembski_point_size", label = "Point Size", min = 1 , max = 10 , value = 4),
                                                             sliderInput("Porembski_point_transparency", label = "Point Transparency", min = 0.1 , max = 1 , value = 0.5),
-                                                            sliderInput("Porembski_edge_transparency", label = "Edge Transparency", min = 1 , max = 10 , value = 4),
+                                                            sliderInput("Porembski_edge_transparency", label = "Edge Transparency", min = 1 , max = 15 , value = 4),
                                                             sliderInput("Porembski_edge_treshold", label = "Edge Treshold", min = 0 , max = 0.95 , value = 0)
                                                             
                                                             
@@ -643,9 +660,10 @@ shinyUI(
                                                          tags$br(),
                                                          tags$br(),
                                                          "© Shahin Ashkiani 2017
-                                                         [August 2017]
-                                                         Except as permitted by the European copyright law applicable to you, you may not reproduce any of the parts on this website. The files downloadable from this website is reproducible with proper citation of the applet and its author.
-                                                         I may change these terms of use from time to time."
+                                                         [September 2017]
+                                                         Currently the applet is under aGPLv3.0 lisence.
+                                                         Hopefuly it is compatible with the lisence of the libraries. 
+                                                         I may change the lisence later."
                                                  )
                                                  
                                                  #tags$a(href="www.Shahin-Ashkiani.com", "www.Shahin-Ashkiani.com") 
@@ -660,11 +678,73 @@ shinyUI(
                                                  
                                                  #"kos",
                                                  #tags$img(src = "https://ibb.co/g3cjzv", width = "100px", height = "100px")
-                                                 img(src='Shahin-Shiny-Cartoon.png', width = "700px", height = "500px") 
-                                         )
-                                         )
-                                 )
-                )
+                                                 img(src='Shahin-Shiny-Cartoon.png', width = "700px", height = "500px"),
+                                                 
+                                                 tags$h2("References:Papers"),
+                                                 tags$ol(
+                                                         tags$li("Adler, N., & Raveh, A. (2008). Presenting DEA graphically. Omega, 36(5), 715-729."), 
+                                                         tags$li("Ashkiani,S., Mar Molinero, C. (2017) Visualization of Cross-Efficiency Matrices Using Multidimensional Unfolding, Working Paper "), 
+                                                         tags$li("Carboni, O. A., & Russu, P. (2015). Assessing regional wellbeing in Italy: An application of Malmquist–DEA and self-organizing map neural clustering. Social indicators research, 122(3), 677-700."),
+                                                         tags$li("e Costa, C. A. B., de Mello, J. C. C. S., & Meza, L. A. (2016). A new approach to the bi-dimensional representation of the DEA efficient frontier with multiple inputs and outputs. European Journal of Operational Research, 255(1), 175-186."),
+                                                         tags$li("Greenacre, M. J. (2010). Biplots in practice. Fundacion BBVA."),
+                                                         tags$li("Kohonen, T. (1998). The self-organizing map. Neurocomputing, 21(1), 1-6."),
+                                                         tags$li("Porembski, M., Breitenstein, K., & Alpar, P. (2005). Visualizing efficiency and reference relations in data envelopment analysis with an application to the branches of a German bank. Journal of Productivity Analysis, 23(2), 203-221.")
+                                                         
+                                                 ),
+                                                 
+                                                 
+                                                 tags$br(),
+                                                 tags$br(),
+                                                 
+                                                 tags$h2("References:Libraries"),
+                                                 tags$ol(
+                                                         tags$li("Michel Berkelaar and others (2015). lpSolve: Interface to 'Lp_solve' v.
+                                                                 5.5 to Solve Linear/Integer Programs. R package version 5.6.13.
+                                                                 https://CRAN.R-project.org/package=lpSolve"),
+                                                         tags$li("P. Bogetoft and L. Otto (2015), Benchmarking with DEA and SFA, R package
+                                                                 version 0.26."),
+                                                         tags$li("Brian G. Peterson and Peter Carl (2014). PerformanceAnalytics: Econometric
+                                                                 tools for performance and risk analysis. R package version 1.4.3541.
+                                                                 https://CRAN.R-project.org/package=PerformanceAnalytics
+                                                                 "),
+                                                         tags$li( "Baptiste Auguie (2016). gridExtra: Miscellaneous Functions for Grid
+                                                                  Graphics. R package version 2.2.1.
+                                                                  https://CRAN.R-project.org/package=gridExtra"),
+                                                         tags$li("Jan de Leeuw, Patrick Mair (2009). Multidimensional Scaling Using
+                                                                 Majorization: SMACOF in R. Journal of Statistical Software, 31(3), 1-30.
+                                                                 URL http://www.jstatsoft.org/v31/i03/.
+                                                                 "),
+                                                         
+                                                         tags$li("Kamil Slowikowski (2016). ggrepel: Repulsive Text and Label Geoms for
+                                                                 'ggplot2'. R package version 0.6.5.
+                                                                 https://CRAN.R-project.org/package=ggrepel
+                                                                 "),
+                                                         tags$li("Taiyun Wei and Viliam Simko (2016). corrplot: Visualization of a
+                                                                 Correlation Matrix. R package version 0.77.
+                                                                 https://CRAN.R-project.org/package=corrplot
+                                                                 "),
+                                                         tags$li("Erich Neuwirth (2014). RColorBrewer: ColorBrewer Palettes. R package
+                                                                 version 1.1-2. https://CRAN.R-project.org/package=RColorBrewer
+                                                                 "),
+                                                         tags$li("Venables, W. N. & Ripley, B. D. (2002) Modern Applied Statistics with S. Fourth Edition. Springer, New York. ISBN 0-387-95457-0"),
+                                                         tags$li("Hadley Wickham, Jim Hester and Romain Francois (2017). readr: ReadRectangular Text Data. R package version 1.1.1.https://CRAN.R-project.org/package=readr"),
+                                                         tags$li("H. Wickham. ggplot2: Elegant Graphics for Data Analysis. Springer-Verlag
+                                                                 New York, 2009."), 
+                                                         
+                                                         tags$li("R. Wehrens and L.M.C. Buydens, Self- and Super-organising Maps in R: the
+                                                                 kohonen package J. Stat. Softw., 21(5), 2007
+                                                                 "),
+                                                         
+                                                         tags$li("Yihui Xie (2016). DT: A Wrapper of the JavaScript Library 'DataTables'. R
+                                                                 package version 0.2. https://CRAN.R-project.org/package=DT
+                                                                 ")
+                                                         
+                                                         )
+                                                 
+                                                         )      
+                                                         )
+                                                         )
+                                                         )
                 
                 
-        ))
+                                 ))
