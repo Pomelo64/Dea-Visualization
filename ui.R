@@ -461,19 +461,29 @@ shinyUI(
                                                     
                                                     # Show the caption, a summary of the dataset and an HTML 
                                                     # table with the requested number of observations
-                                                    mainPanel(
+                                                    mainPanel( 
+                                                            tabsetPanel(
+                                                                    tabPanel( "Biplot",
+                                                                              #plotOutput("biplot_plot"),
+                                                                              plotOutput("biplot_plot",width = "800px",height = "600px",
+                                                                                         dblclick = "biplot_dblclick",
+                                                                                         brush = brushOpts(
+                                                                                                 id = "biplot_brush",
+                                                                                                 resetOnNew = TRUE
+                                                                                         )
+                                                                              ),
+                                                                              downloadButton('download_biplot', 'Download the Plot'),
+                                                                              #tableOutput("biplot_info")
+                                                                              DT::dataTableOutput("biplot_brush_info")
+                                                                              
+                                                                    ),
+                                                                    tabPanel( "Help",
+                                                                              tags$iframe(src = "biplotHelp.html", style="height:600px; width:100%")
+                                                                              
+                                                                    )
+                                                            )
                                                             
-                                                            #plotOutput("biplot_plot"),
-                                                            plotOutput("biplot_plot",width = "800px",height = "600px",
-                                                                       dblclick = "biplot_dblclick",
-                                                                       brush = brushOpts(
-                                                                               id = "biplot_brush",
-                                                                               resetOnNew = TRUE
-                                                                       )
-                                                            ),
-                                                            downloadButton('download_biplot', 'Download the Plot'),
-                                                            #tableOutput("biplot_info")
-                                                            DT::dataTableOutput("biplot_brush_info")
+                                                            
                                                             
                                                             
                                                     )
@@ -519,19 +529,28 @@ shinyUI(
                                                     # Show the caption, a summary of the dataset and an HTML 
                                                     # table with the requested number of observations
                                                     mainPanel(
+                                                            tabsetPanel(
+                                                                    tabPanel("SOM Plots",
+                                                                             #plotOutput("biplot_plot"),
+                                                                             plotOutput("som_plot",
+                                                                                        dblclick = "som_dblclick",
+                                                                                        brush = brushOpts(
+                                                                                                id = "som_brush",
+                                                                                                resetOnNew = TRUE
+                                                                                        )
+                                                                             ),
+                                                                             downloadButton('download_som_main', 'Download the Plot'),
+                                                                             plotOutput('som_var_plots'),
+                                                                             tableOutput("som_info"),
+                                                                             downloadButton('download_som_properties', 'Download the Plot')
+                                                                             
+                                                                    ),
+                                                                    tabPanel("Help",
+                                                                             tags$iframe(src = "somHelp.html", style="height:600px; width:100%")
+                                                                             
+                                                                    )
+                                                            )
                                                             
-                                                            #plotOutput("biplot_plot"),
-                                                            plotOutput("som_plot",
-                                                                       dblclick = "som_dblclick",
-                                                                       brush = brushOpts(
-                                                                               id = "som_brush",
-                                                                               resetOnNew = TRUE
-                                                                       )
-                                                            ),
-                                                            downloadButton('download_som_main', 'Download the Plot'),
-                                                            plotOutput('som_var_plots'),
-                                                            tableOutput("som_info"),
-                                                            downloadButton('download_som_properties', 'Download the Plot')
                                                             
                                                     )
                                             )
@@ -578,17 +597,28 @@ shinyUI(
                                                     # table with the requested number of observations
                                                     mainPanel(
                                                             
-                                                            #plotOutput("biplot_plot"),
-                                                            plotOutput("Costa_plot",width = "800px",height = "600px",
-                                                                       dblclick = "Costa_dblclick",
-                                                                       brush = brushOpts(
-                                                                               id = "Costa_brush",
-                                                                               resetOnNew = TRUE
-                                                                       )
-                                                            ),
-                                                            downloadButton('download_Costa', 'Download the Plot'),
-                                                            #tableOutput("Costa_info")
-                                                            DT::dataTableOutput("Costa_brush_info")
+                                                            tabsetPanel(
+                                                                    tabPanel("Frontier Visualization",
+                                                                             #plotOutput("biplot_plot"),
+                                                                             plotOutput("Costa_plot",width = "800px",height = "600px",
+                                                                                        dblclick = "Costa_dblclick",
+                                                                                        brush = brushOpts(
+                                                                                                id = "Costa_brush",
+                                                                                                resetOnNew = TRUE
+                                                                                        )
+                                                                             ),
+                                                                             downloadButton('download_Costa', 'Download the Plot'),
+                                                                             #tableOutput("Costa_info")
+                                                                             DT::dataTableOutput("Costa_brush_info")
+                                                                    ),
+                                                                    tabPanel("Help",
+                                                                             tags$iframe(src = "costaHelp.html", style="height:600px; width:100%")
+                                                                             
+                                                                    )
+                                                                    
+                                                            )
+                                                            
+                                                            
                                                             
                                                     )
                                             )
@@ -639,18 +669,29 @@ shinyUI(
                                                     # Show the caption, a summary of the dataset and an HTML 
                                                     # table with the requested number of observations
                                                     mainPanel(
+                                                            tabsetPanel(
+                                                                    
+                                                                    tabPanel("MDS Plot",
+                                                                             #plotOutput("biplot_plot"),
+                                                                             plotOutput("mds_plot",width = "800px",height = "600px",
+                                                                                        dblclick = "mds_dblclick",
+                                                                                        brush = brushOpts(
+                                                                                                id = "mds_brush",
+                                                                                                resetOnNew = TRUE
+                                                                                        )
+                                                                             ),
+                                                                             downloadButton('download_mds', 'Download the Plot'),
+                                                                             #tableOutput("mds_info")
+                                                                             DT::dataTableOutput("mds_brush_info")),
+                                                                    
+                                                                    tabPanel("Help",
+                                                                             
+                                                                             tags$iframe(src = "mdsHelp.html", style="height:600px; width:100%")
+                                                                             
+                                                                    )
+                                                            )
                                                             
-                                                            #plotOutput("biplot_plot"),
-                                                            plotOutput("mds_plot",width = "800px",height = "600px",
-                                                                       dblclick = "mds_dblclick",
-                                                                       brush = brushOpts(
-                                                                               id = "mds_brush",
-                                                                               resetOnNew = TRUE
-                                                                       )
-                                                            ),
-                                                            downloadButton('download_mds', 'Download the Plot'),
-                                                            #tableOutput("mds_info")
-                                                            DT::dataTableOutput("mds_brush_info")
+                                                            
                                                             
                                                     )
                                             )

@@ -1623,7 +1623,7 @@ shinyServer(function(input, output) {
                 #g <- g+ text(x = som_factor$grid$pts[som_factor$unit.classif,1] + jitter[,1], y = som_factor$grid$pts[som_factor$unit.classif,2] + jitter[,2],labels = 1:nrow(t) , col = alpha("white",1)    )
                 #g
                 
-                
+                return(g)
                 
         })
         
@@ -1653,14 +1653,6 @@ shinyServer(function(input, output) {
                 jitter = matrix(rnorm(n= nrow(t)*2, mean = 0,sd = 0.1),ncol = 2)
                 
                 plot_titles <- colnames(d)
-                #plots = list()
-                
-                #for (index in 1:ncol(d)) {
-                #        p1 = plot(som_factor, type = "property", property = som_factor$codes[[1]][,index], palette.name = coolBlueHotRed  )
-                #        plots[[index]] <- p1  
-                #}
-                
-                #multiplot(plotlist = plots, cols = 3)
                 
                 num_of_plots<-ncol(t)
                 plot_rows =as.integer(num_of_plots/3) + 1 
@@ -1673,28 +1665,94 @@ shinyServer(function(input, output) {
         })
         
         output$som_var_plots <- renderPlot({
-                
                 som_properties_plot()
-                
         })
         
         output$download_som_main <- downloadHandler(
                 filename = "SOM_Main.png",
                 content = function(file) {
-                        #png(file)
-                        #print(biplot_plot())
-                        #dev.off()
-                        ggsave(file, plot = som_plot_func(), device = "png", dpi = 450)
+                        
+                        png(file)
+                        
+                        set.seed(7)
+                        t<- som_data()
+                        d<- final_dataset_reactive()
+                        
+                        number_of_inputs = input$num_of_inputs
+                        
+                        crs_efficiency <- crs_eff(d,number_of_inputs)$eff
+                        vrs_efficiency <- vrs_eff(d,number_of_inputs)$eff
+                        
+                        
+                        horizontal_nodes = input$som_h_size
+                        vertical_nodes = input$som_v_size 
+                        total_nodes = horizontal_nodes*vertical_nodes
+                        
+                        som_factor = som(X = t, 
+                                         grid = somgrid(xdim =horizontal_nodes, ydim = vertical_nodes, topo = "hexagonal" ),
+                                         rlen = 10000 ,
+                                         init = t[sample(x = nrow(t), size = total_nodes, replace = TRUE),], 
+                                         keep.data = TRUE)
+                        
+                        coolBlueHotRed <- function(n, alpha = 1) {rainbow(n, end=4/6, alpha=alpha)[n:1]}
+                        jitter = matrix(rnorm(n= nrow(t)*2, mean = 0,sd = 0.1),ncol = 2)
+                        
+                        som_eff_vec = vector(length = total_nodes)
+                        
+                        som_eff_vec_sapply= switch(EXPR = input$som_dea_model, 
+                                                   "CRS" = sapply(X = 1:total_nodes, function(x) mean(crs_efficiency[which(som_factor$unit.classif==x)] )  ),
+                                                   "VRS" = sapply(X = 1:total_nodes, function(x) mean(vrs_efficiency[which(som_factor$unit.classif==x)] )  )
+                        )
+                        
+                        switch(EXPR = input$som_labels ,
+                               "Yes" = plot(som_factor, type = "property",
+                                            property = som_eff_vec_sapply,
+                                            palette.name = coolBlueHotRed , main = "SOM DEA" ) +
+                                       text(x = som_factor$grid$pts[som_factor$unit.classif,1] + jitter[,1], 
+                                            y = som_factor$grid$pts[som_factor$unit.classif,2] + jitter[,2],
+                                            labels = 1:nrow(t) , col = alpha("white",1)    ),
+                               "No" = g 
+                        )
+                        
+                        
+                        dev.off()
                 }
         ) 
         
         output$download_som_properties <- downloadHandler(
                 filename = "SOM_properties.png",
                 content = function(file) {
-                        #png(file)
-                        #print(biplot_plot())
-                        #dev.off()
-                        ggsave(file, plot = som_properties_plot(), device = "png", dpi = 450)
+                        png(file)
+                        
+                        set.seed(7)
+                        t<- som_data()
+                        d<- final_dataset_reactive()
+                        
+                        number_of_inputs = input$num_of_inputs
+                        horizontal_nodes = input$som_h_size
+                        vertical_nodes = input$som_v_size 
+                        total_nodes = horizontal_nodes*vertical_nodes
+                        
+                        som_factor = som(X = t, 
+                                         grid = somgrid(xdim =horizontal_nodes, ydim = vertical_nodes, topo = "hexagonal" ),
+                                         rlen = 10000 ,
+                                         init = t[sample(x = nrow(t), size = total_nodes, replace = TRUE),], 
+                                         keep.data = TRUE)
+                        
+                        coolBlueHotRed <- function(n, alpha = 1) {rainbow(n, end=4/6, alpha=alpha)[n:1]}
+                        jitter = matrix(rnorm(n= nrow(t)*2, mean = 0,sd = 0.1),ncol = 2)
+                        
+                        plot_titles <- colnames(d)
+                        
+                        num_of_plots<-ncol(t)
+                        plot_rows =as.integer(num_of_plots/3) + 1 
+                        
+                        par(mfrow=c(plot_rows,3))
+                        for (index in 1:ncol(d)) {
+                                plot(som_factor, type = "property", property = som_factor$codes[[1]][,index], palette.name = coolBlueHotRed, main = plot_titles[index]  )
+                        }
+                        
+                        dev.off()
                 }
         ) 
         ######
