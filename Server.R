@@ -13,7 +13,7 @@ library(gridExtra)
 library(RColorBrewer)
 library(PerformanceAnalytics) # for correlation plot
 library(corrplot) # for correlation plot
-library(shinyBS)
+#library(shinyBS)
 #library(shinyjs)
 options(expressions = 500000)
 
@@ -163,9 +163,7 @@ shinyServer(function(input, output) {
                 
         })
         
-        output$data_upload_help <- renderText({
-                ("You should upload a .CSV file, with the inputs on the write hand side of the plot")
-        })
+        
         
         #for rendering reactive table of outputs    
         output$outputs_table <- renderTable({
@@ -2404,6 +2402,7 @@ shinyServer(function(input, output) {
                 }
         )
         
+        #----- The help messages 
         
         
         

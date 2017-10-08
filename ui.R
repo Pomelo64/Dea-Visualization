@@ -2,6 +2,7 @@ library(shiny)
 library(lpSolve)
 library(Benchmarking)
 library(smacof)
+library(shinyBS)
 
 
 
@@ -26,8 +27,8 @@ shinyUI(
                                                           "In the right side panel it is possible to check the format ",
                                                           "of the dataset."), 
                                                  
-                                                 bsButton("upload_data_help_button", label = "", icon = icon("question"),
-                                                          style = "info", size = "extra-small"),
+                                                 #bsButton("upload_data_help_button", label = "", icon = icon("question"),
+                                                 #         style = "info", size = "extra-small"),
                                                  
                                                  
                                                  
@@ -78,23 +79,26 @@ shinyUI(
                                          
                                          
                                          mainPanel(
-                                                 h4("Dataset Evaluation"),
-                                                 verbatimTextOutput("dataset_evaluation_message"),
                                                  
-                                                 h4("Dataset Description"),
-                                                 verbatimTextOutput("factors_info"), 
-                                                 
-                                                 h4("Inputs Factors"),
-                                                 tableOutput("inputs_table"),
-                                                 
-                                                 h4("Outputs Factors"),
-                                                 tableOutput("outputs_table"),
-                                                 
-                                                 bsModal(id = "upload_modal", "Upload Help", "upload_data_help_button", size = "large",
-                                                         textOutput("data_upload_help"))
-                                                 
-                                                 
-                                                 
+                                                 tabsetPanel(
+                                                         tabPanel("Data Upload",
+                                                                  h4("Dataset Evaluation"),
+                                                                  verbatimTextOutput("dataset_evaluation_message"),
+                                                                  
+                                                                  h4("Dataset Description"),
+                                                                  verbatimTextOutput("factors_info"), 
+                                                                  
+                                                                  h4("Inputs Factors"),
+                                                                  tableOutput("inputs_table"),
+                                                                  
+                                                                  h4("Outputs Factors"),
+                                                                  tableOutput("outputs_table")
+                                                         ),
+                                                         tabPanel("Help",
+                                                                  tags$iframe(src = "Uploadhelp.html", style="height:600px; width:100%")
+                                                                  
+                                                         )
+                                                 )
                                                  
                                                  
                                          )
@@ -120,6 +124,8 @@ shinyUI(
                                                             #labels 
                                                             
                                                             helpText("Note: By pressing the plot button, the chosen variables would be visualized in histogram dot-plots. Each dot is representative of a DMU. Furthermore, one single DMU can be highlighted in the plots."), 
+                                                            #bsButton("histogram_help_button", label = "", icon = icon("question"),
+                                                            #         style = "info", size = "extra-small"),
                                                             tags$hr(),
                                                             # dynamic UI of checkbox inputs
                                                             uiOutput("dotplot_var_selection_ui"), 
@@ -144,6 +150,8 @@ shinyUI(
                                                             tabsetPanel(
                                                                     tabPanel( "Variable Distributions",
                                                                               plotOutput("dotplot_plot",width = "800px",height = "600px"),
+                                                                              #bsModal("histogram_modal_example", "Variable Dotplots: Help", "histogram_help_button", size = "large",
+                                                                              #        htmlOutput("histogram_help")),
                                                                               
                                                                               #textOutput("dotplot_info")
                                                                               #DT::dataTableOutput("dotplot_brush_info")
@@ -151,11 +159,21 @@ shinyUI(
                                                                     ),
                                                                     tabPanel("Efficiency Distributions",
                                                                              plotOutput("dotplot_efficiency_plot",width = "800px",height = "600px"),
+                                                                             #bsModal("histogram_modal_example", "Variable Dotplots: Help", "histogram_help_button", size = "large",
+                                                                             #        htmlOutput("histogram_help")),
                                                                              
                                                                              #textOutput("dotplot_info")
                                                                              #DT::dataTableOutput("dotplot_brush_info")
                                                                              downloadButton('download_dotplot_efficiency', 'Download the Plot')
                                                                              
+                                                                    ), 
+                                                                    tabPanel("Help",
+                                                                             
+                                                                             #tags$img(src = "/Users/Shaahin/Downloads/inputsoutputs.jpg", width = "100px")
+                                                                             #tags$iframe(src = "/Users/Shaahin/Dropbox/Visualization/Shiny/DEA\ first\ try/Uploadhelp.html", seamless=NA)
+                                                                             #htmlOutput("distribution_help")
+                                                                             tags$iframe(src = "DistributionHelp.html", style="height:600px; width:100%")
+                                                                             #uiOutput("distribution_help")
                                                                     )
                                                             )
                                                             
@@ -178,6 +196,8 @@ shinyUI(
                                                             helpText("Note: Choose the set of variables and the visualization",
                                                                      "approach to correlation matrix, then press button to see",
                                                                      "the correlation plot."), 
+                                                            #bsButton("correlation_help_button", label = "", icon = icon("question"),
+                                                            #         style = "info", size = "extra-small"),
                                                             tags$hr(),
                                                             
                                                             radioButtons("correlation_dataset",label = "Dataset of Correlations", 
@@ -204,6 +224,8 @@ shinyUI(
                                                             
                                                             #plotOutput("biplot_plot"),
                                                             plotOutput("correlation_plot",width = "800px",height = "600px"),
+                                                            #bsModal("correlation_modal", "Correlation Matrix: Help", "correlation_help_button", size = "large",
+                                                            #        textOutput("correlation_help")),
                                                             
                                                             downloadButton('download_correlation', 'Download the Plot')
                                                             #tableOutput("mds_info")
@@ -315,14 +337,12 @@ shinyUI(
                                                                              ),
                                                                              downloadButton('download_cem_weight_plot', 'Download the Plot'),
                                                                              DT::dataTableOutput("cem_opt_weights_brush_info")
-                                                                             #tags$hr(),
-                                                                             #helpText("Standardized Weights of Outputs"),
-                                                                             #plotOutput("output_weights_dotplots",width = "800px",height = "600px"),
                                                                              
-                                                                             #DT::dataTableOutput("cem_weights_info"),
-                                                                             #DT::dataTableOutput("cem_weights_std_info")
                                                                              
-                                                                             # now the dotplots using grid.arrange() similar to the simple dotplots
+                                                                    ), 
+                                                                    
+                                                                    tabPanel("Help",
+                                                                             tags$iframe(src = "cemHelp.html", style="height:600px; width:100%")
                                                                              
                                                                     )
                                                                     
@@ -372,29 +392,40 @@ shinyUI(
                                                     
                                                     # Show the caption, a summary of the dataset and an HTML 
                                                     # table with the requested number of observations
-                                                    mainPanel(
-                                                            
-                                                            #plotOutput("Porembski_plot"),
-                                                            plotOutput("Porembski_plot",width = "800px",height = "600px",
-                                                                       dblclick = "Porembski_dblclick",
-                                                                       brush = brushOpts(
-                                                                               id = "Porembski_brush",
-                                                                               resetOnNew = TRUE
-                                                                       )
-                                                            ),
-                                                            downloadButton('download_Porembski_graph', 'Download the Plot'),
-                                                            DT::dataTableOutput("Proembski_brush_info")
-                                                            #tableOutput("Porembski_info"),
-                                                            
-                                                            
-                                                            
-                                                            
+                                                    mainPanel(id = "porembski",
+                                                              
+                                                              tabsetPanel(
+                                                                      tabPanel("Porembski Graph",
+                                                                               #plotOutput("Porembski_plot"),
+                                                                               plotOutput("Porembski_plot",width = "800px",height = "600px",
+                                                                                          dblclick = "Porembski_dblclick",
+                                                                                          brush = brushOpts(
+                                                                                                  id = "Porembski_brush",
+                                                                                                  resetOnNew = TRUE
+                                                                                          )
+                                                                               ),
+                                                                               downloadButton('download_Porembski_graph', 'Download the Plot'),
+                                                                               DT::dataTableOutput("Proembski_brush_info")
+                                                                               #tableOutput("Porembski_info"),
+                                                                               
+                                                                      ),
+                                                                      tabPanel("Help",
+                                                                               tags$iframe(src = "porembskiHelp.html", style="height:600px; width:100%")
+                                                                               
+                                                                      )
+                                                              )
+                                                              
+                                                              
+                                                              
+                                                              
+                                                              
+                                                              
                                                     )
                                             )
                                     ) 
                            ),
                            ##### 
-                           tabPanel("PCA Biplot",
+                           tabPanel("Variable Profile PCA Bi-plot",
                                     fluidPage(
                                             
                                             # Application title
@@ -564,7 +595,7 @@ shinyUI(
                                     )
                            ),# End of Costa Frontier 
                            #####
-                           tabPanel("MDS Color Plots",
+                           tabPanel("Variable Profile MDS Color-Plots",
                                     fluidPage(
                                             # Application title
                                             titlePanel("MDS Color Plots"),
