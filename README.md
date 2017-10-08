@@ -8,3 +8,8 @@ However, the package would be not very useful for many scholars who do not know 
 Thus I thought it would be a better idea to make an applet first. 
 
 This repository is the source code of the applet. 
+
+The applet can be found here:  https://ashkiani.shinyapps.io/dea-viz/
+
+Please do not forget to cite the applet if you use it in your research
+I would be happy to be informed about the studies that use this applet : contact @  shahin.ashkiani .com 
